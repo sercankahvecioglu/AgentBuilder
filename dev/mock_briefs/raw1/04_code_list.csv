@@ -1,0 +1,24 @@
+tool,field,code,meaning
+close_call,outcome,promise,at least one promise was recorded (no reason)
+close_call,outcome,paid,customer says the overdue amount is already paid (no reason)
+close_call,outcome,transferred,the call was handed to a person; reason = queue code below
+close_call,reason,plan,transferred: payment plan request (queue payment_plans)
+close_call,reason,agent,transferred: customer insisted on a human (queue agents)
+close_call,reason,care,transferred: hardship (queue care)
+close_call,outcome,no_promise,no promise could be recorded; reason required
+close_call,reason,refused,no_promise: attempts used up or customer twice did not want to talk
+close_call,reason,hardship,no_promise: hardship and the customer declined the care team
+close_call,reason,disputed,no_promise: the customer disputes the debt or the product
+close_call,reason,service_error,no_promise: create_promise failed twice
+close_call,outcome,not_verified,identity check not passed; reason required
+close_call,reason,failed,not_verified: three wrong answers
+close_call,reason,declined,not_verified: customer declined the questions or twice did not want to talk before verification
+close_call,outcome,not_reached,customer not on the line; reason required
+close_call,reason,callback,not_reached: callback booked
+close_call,reason,no_callback,not_reached: no callback could be booked
+close_call,reason,wrong_number,not_reached: wrong number
+close_call,reason,deceased,not_reached: customer deceased
+close_call,reason,unclear,not_reached: identity of the person on the line unclear after two asks
+transfer_to_agent,queue,payment_plans,payment plan and restructuring requests
+transfer_to_agent,queue,agents,general human agents
+transfer_to_agent,queue,care,customer care team (hardship)
