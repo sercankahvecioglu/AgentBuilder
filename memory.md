@@ -111,6 +111,13 @@ Status: ✅ required or clearly fits · ⚠️ allowed but limited or uncertain 
 
 Commit `c2e5c12` added `.env` with non-empty `FREYA_API_KEY` and `FREYA_BANK_TEAM_KEY`. It was pushed to GitHub (`sercan-dev`, merged into `master` via PR #1). The fix is a user action (DEV_PLAN T0.0): rotate the Freya key, pick a new team key, purge `.env` from history and force-push.
 
+## 3d. File ownership between the two tracks (2026-10-11 00:20 UTC)
+
+Both tracks edited `builder/schema.py` and `dev/gold/make_gold.py` at the same time on 2026-10-11 00:00-00:20 UTC. To stop that:
+- **Track B owns** `builder/schema.py`, `builder/llm.py`, `extract.py`, `resolve.py`, `verify.py`, `dev/gold/*`, `dev/eval_extract.py`, `dev/mock_briefs/`.
+- **Track A owns** `builder/openapi_tools.py`, `generate.py`, `templates/`, `static_tests.py`, `smoke.py`, `freya_io.py`, `trace.py`, `build.py`, `dev/spikes/`, `dev/cases/`, `dev/issues.json`.
+- A track that needs a change in the other's file makes the smallest possible edit, commits it at once with a message starting `[xtrack]`, and notes it here. Fields Track A added to the schema: `opening.first_sentence` (ready-to-speak first sentence), `SpecialIntent.ask_once_text` (the one-time ask or offer as an instruction).
+
 ## 3c. Verified platform facts (DEV_PLAN Phase 1 spikes)
 
 All verified 2026-10-10 23:00-23:30 UTC with `dev/spikes/make_spike1.py` (slot `spike`, 16 nodes) driven turn by turn through `POST /api/v2/chat/message` against PUB-10 practice sessions (`dev/spikes/chatdrive.py`; runs saved as `dev/spikes/spike1_run{1,2,3}.json`, call events read with `freya.get_call`). Plus the PUB-10/PUB-08 calls of the base-agent run in `results/base-a.json`.

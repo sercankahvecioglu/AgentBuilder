@@ -85,6 +85,12 @@
     "A-R1"
    ]
   },
+  "first_sentence": {
+   "value": "Hello, this is a digital assistant calling from Freya Bank. This call is recorded.",
+   "fact_ids": [
+    "A-R1"
+   ]
+  },
   "forbidden_before_identity": {
    "values": [
     "collections",
@@ -727,6 +733,7 @@
    "say_text": "One short sentence of sympathy.",
    "say_is_verbatim": false,
    "ask_once_first": true,
+   "ask_once_text": "Offer to connect them with the customer support team.",
    "action_kind": "transfer",
    "action_queue": "support",
    "action_note_reason": "",
@@ -754,6 +761,7 @@
    "say_text": "Say that payments can take one business day to appear.",
    "say_is_verbatim": false,
    "ask_once_first": false,
+   "ask_once_text": "",
    "action_kind": "none",
    "action_queue": "",
    "action_note_reason": "",
@@ -781,6 +789,7 @@
    "say_text": "Do not argue and do not take a promise.",
    "say_is_verbatim": false,
    "ask_once_first": false,
+   "ask_once_text": "",
    "action_kind": "none",
    "action_queue": "",
    "action_note_reason": "",
@@ -808,6 +817,7 @@
    "say_text": "Do not describe a plan.",
    "say_is_verbatim": false,
    "ask_once_first": false,
+   "ask_once_text": "",
    "action_kind": "transfer",
    "action_queue": "restructuring",
    "action_note_reason": "",
@@ -835,6 +845,7 @@
    "say_text": "",
    "say_is_verbatim": false,
    "ask_once_first": true,
+   "ask_once_text": "Ask once whether you can help first.",
    "action_kind": "transfer",
    "action_queue": "general",
    "action_note_reason": "",
@@ -863,6 +874,7 @@
    "say_text": "",
    "say_is_verbatim": false,
    "ask_once_first": false,
+   "ask_once_text": "",
    "action_kind": "none",
    "action_queue": "",
    "action_note_reason": "",
@@ -890,6 +902,7 @@
    "say_text": "Say that you are Freya Bank's digital assistant and continue.",
    "say_is_verbatim": false,
    "ask_once_first": false,
+   "ask_once_text": "",
    "action_kind": "none",
    "action_queue": "",
    "action_note_reason": "",
@@ -917,6 +930,7 @@
    "say_text": "Say they can verify the call by phoning Freya Bank's customer service number, and continue.",
    "say_is_verbatim": false,
    "ask_once_first": false,
+   "ask_once_text": "",
    "action_kind": "none",
    "action_queue": "",
    "action_note_reason": "",
@@ -944,6 +958,7 @@
    "say_text": "Say you do not have that information. Do not invent figures, dates or reasons.",
    "say_is_verbatim": false,
    "ask_once_first": false,
+   "ask_once_text": "",
    "action_kind": "none",
    "action_queue": "",
    "action_note_reason": "",

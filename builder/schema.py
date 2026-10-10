@@ -137,6 +137,7 @@ class Roles(Strict):
 
 class Opening(Strict):
     required_elements: L = Field(description="What the first sentence must contain.")
+    first_sentence: S = Field(description="A ready-to-speak first sentence in the first person that contains every required element, using the brief's own words.")
     forbidden_before_identity: L = Field(description="Words or topics not to mention before identity is verified.")
     confirm_question: S = Field(description="The question that asks whether the right person is on the line (template).")
     accept_examples: L = Field(description="Replies that count as confirmation.")
@@ -326,6 +327,7 @@ class SpecialIntent(Strict):
     say_text: str = Field(description="Sentence or instruction; '' if nothing specific.")
     say_is_verbatim: bool
     ask_once_first: bool = Field(description="Ask once (e.g. 'can I help first?' or 'shall I connect you?') before acting.")
+    ask_once_text: str = Field(description="What to ask or offer once when ask_once_first is true, as an instruction; '' otherwise.")
     action_kind: str = Field(description="none | transfer | note | callback")
     action_queue: str = Field(description="transfer queue from the tool API enum; '' if none.")
     action_note_reason: str = Field(description="add_note reason; '' if none.")
