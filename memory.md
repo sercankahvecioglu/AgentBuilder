@@ -111,7 +111,7 @@ Status: ✅ required or clearly fits · ⚠️ allowed but limited or uncertain 
 
 Commit `c2e5c12` added `.env` with non-empty `FREYA_API_KEY` and `FREYA_BANK_TEAM_KEY`. It was pushed to GitHub (`sercan-dev`, merged into `master` via PR #1). The fix is a user action (DEV_PLAN T0.0): rotate the Freya key, pick a new team key, purge `.env` from history and force-push.
 
-## 3d. File ownership between the two tracks (2026-10-11 00:20 UTC)
+## 3d. File ownership between the two tracks (2026-10-10 22:20 UTC)
 
 Both tracks edited `builder/schema.py` and `dev/gold/make_gold.py` at the same time on 2026-10-11 00:00-00:20 UTC. To stop that:
 - **Track B owns** `builder/schema.py`, `builder/llm.py`, `extract.py`, `resolve.py`, `verify.py`, `dev/gold/*`, `dev/eval_extract.py`, `dev/mock_briefs/`.
@@ -123,7 +123,7 @@ Both tracks edited `builder/schema.py` and `dev/gold/make_gold.py` at the same t
 
 ## 3c. Verified platform facts (DEV_PLAN Phase 1 spikes)
 
-All verified 2026-10-10 23:00-23:30 UTC with `dev/spikes/make_spike1.py` (slot `spike`, 16 nodes) driven turn by turn through `POST /api/v2/chat/message` against PUB-10 practice sessions (`dev/spikes/chatdrive.py`; runs saved as `dev/spikes/spike1_run{1,2,3}.json`, call events read with `freya.get_call`). Plus the PUB-10/PUB-08 calls of the base-agent run in `results/base-a.json`.
+All verified 2026-10-10 21:00-21:40 UTC with `dev/spikes/make_spike1.py` (slot `spike`, 16 nodes) driven turn by turn through `POST /api/v2/chat/message` against PUB-10 practice sessions (`dev/spikes/chatdrive.py`; runs saved as `dev/spikes/spike1_run{1,2,3}.json`, call events read with `freya.get_call`). Plus the PUB-10/PUB-08 calls of the base-agent run in `results/base-a.json`.
 
 | Id | Finding | Consequence |
 |---|---|---|
@@ -136,11 +136,11 @@ All verified 2026-10-10 23:00-23:30 UTC with `dev/spikes/make_spike1.py` (slot `
 | S7 | PUB-10's first `create_promise` is an **HTTP 500** with body `{"ok": false, "error": "service unavailable, nothing was recorded"}` → event `function_call_error`, `<node>_failure_count` = 1, `<node>_response.error` = `HTTP 500`, no `_response.data.*`, no post-hook. `<node>_success_count` is unset until a success. The mock rejects a free-text close reason with `ok:false` ("this outcome needs one of these reasons: …") and the ledger then has `(None, None)`. | Retry loop: `promise_guard`-set flag, `do_promise` → `promise_result` (code counts attempts, re-enters once). Close reasons must be literal table values. |
 | S8 | code → api → code re-entering the same `api_request` node works (`do_promise` ran twice; the second call succeeded). | Per-product write and note loops are feasible. |
 | S9 | A code node right after a conversation node **runs in `chat/message`**, and the following conversation node's `on_enter` tts is returned as the reply. But in chat the **initial node's `on_enter` is never spoken** and the **first turn's routing is suppressed** ("Missing prior assistant message"). An empty message is rejected (400). | Smoke test: send "Hello?" first; check the model's reply (the opening node's `task_message` must tell the model to say the opening if not yet said). First-turn transitions cannot be smoke-tested. |
-| extra2 | **A code node's write to a variable that the current conversation node's `extraction_schema` declares can be lost** (2026-10-11 01:40 UTC, PUB-12 call in `results/mvp1-b.json`): `product_done` wrote `pay = start_product` and `cur_idx`, `nego_hint`; the next code node saw the new `cur_idx` and `nego_hint` but `pay = none`. A reset to `none` by the first router of the turn did apply. Rule: code never passes commands through extraction variables; it uses its own variables (`nego_cmd`) and only resets extraction variables. | ISS-001 |
+| extra2 | **A code node's write to a variable that the current conversation node's `extraction_schema` declares can be lost** (2026-10-10 23:35 UTC, PUB-12 call in `results/mvp1-b.json`): `product_done` wrote `pay = start_product` and `cur_idx`, `nego_hint`; the next code node saw the new `cur_idx` and `nego_hint` but `pay = none`. A reset to `none` by the first router of the turn did apply. Rule: code never passes commands through extraction variables; it uses its own variables (`nego_cmd`) and only resets extraction variables. | ISS-001 |
 | S10 | Chat turns with tiny prompts took 2-5 s (code and api nodes add about 1 s each). | Measure again on the MVP. |
 | extra | A conversation node re-entered through its own `always` self-transition **replays `on_enter` tts** instead of a model reply unless `on_enter_first_entry_only: true`. `current_turns` resets on that self-transition (C13). The dialogue model freely claims actions ("I have scheduled that for you", "I have recorded your details") with no tool: prompts must forbid claiming any recording. | Every conversation node with a self-transition sets `on_enter_first_entry_only`. |
 
-**Decisions taken from the spikes (2026-10-10 23:30 UTC):**
+**Decisions taken from the spikes (2026-10-10 21:45 UTC):**
 - **Guard = G2** (D9): `promise_guard` (code) validates the agreed values, `do_promise` (`api_request`, baked body, pre-hook float coercion, `maxRetries: 0`), `promise_result` (code: per-step flag, one retry).
 - **Goodbye = mechanism (ii)** (C7): `wrap_up` sets `close_key`, `goodbye` (conversation, tts, `always` → `close_router`?) No: `goodbye` carries one deterministic transition per outcome row (`close_key equals <row>` → `close_<row>`) and nothing else, so the customer's reply closes the call; `close_<row>` is silent with a literal body; `end_<row>` uses `message_mode none`.
 - **Date capture = parts** (C2): `day_ref` {today, tomorrow, day_after_tomorrow, weekday, day_of_month, vague, none}, `weekday`, `week_ref` {this, next, none}, `day_of_month` (int), `month` (enum), `vague_kind`; code resolves against `now`. `date`-typed extraction is not used for payment or callback dates. Identity answers stay model-filled tool arguments (the dialogue model converts the DOB; the prompt carries the number-order rule).
@@ -286,8 +286,8 @@ The schedule, the cut order and the definition of done are in DEV_PLAN.md §3 an
   - send the form before 20:00
 
 ## Changelog
-- 2026-10-11 01:20 UTC: Phase 5 MVP generated from gold A (`builder/generate.py`, 66 nodes, G2 writes, per-outcome close nodes, goodbye node): **10/10 on PUB-01..10 at reps 1** (160 s, median slowest turn 6 s, worst 28 s; `results/mvp1.log`, agent 566c6109 in slot `brief-a`). Local flow simulator `builder/flowsim.py` + `dev/cases/flows_a.py`/`flows_b.py` pass 10/10 and 3/3. T5.5 multi-product generated into slot `brief-ab`; platform run on B started.
+- 2026-10-10 23:20 UTC: Phase 5 MVP generated from gold A (`builder/generate.py`, 66 nodes, G2 writes, per-outcome close nodes, goodbye node): **10/10 on PUB-01..10 at reps 1** (160 s, median slowest turn 6 s, worst 28 s; `results/mvp1.log`, agent 566c6109 in slot `brief-a`). Local flow simulator `builder/flowsim.py` + `dev/cases/flows_a.py`/`flows_b.py` pass 10/10 and 3/3. T5.5 multi-product generated into slot `brief-ab`; platform run on B started.
 - 2026-10-10: created from the planning conversation (pipeline design, τ^τ-Bench lessons, deep research) and checked against the hackathon page.
 - 2026-10-10: corrections C1-C10 added with DEV_PLAN.md; D1, D7 and D9 updated.
-- 2026-10-10 23:30 UTC: spikes S1-S9 done (§3c); G2, goodbye mechanism (ii) and date-parts capture decided.
+- 2026-10-10 21:45 UTC: spikes S1-S9 done (§3c); G2, goodbye mechanism (ii) and date-parts capture decided.
 - 2026-10-10 23:00 UTC: DEV_PLAN v2 after the adversarial review. Added C11-C14, the security note (§3a), the corrected coverage list (§8) and the own-case constraints (D17); G2 is now the target guard and C7 uses per-outcome close nodes.
