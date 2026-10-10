@@ -260,7 +260,7 @@ def verify(spec: Spec, facts: list[Fact], res: Resolution, api: dict, inputs_tex
     def quotes(ids: list[str]) -> str:
         return " ".join(by_id[i].source_quote + " " + by_id[i].text for i in ids if i in by_id)
 
-    RETRY_RE = re.compile(r"\b(once more|again|another|retry|retried|second|one more|more time)\b", re.I)
+    RETRY_RE = re.compile(r"\b(once more|one more time|try again|tried again|retry|retried)\b", re.I)
 
     def check_num(path: str, value: float, ids: list[str], what: str = "number") -> None:
         q = quotes(ids)
@@ -269,7 +269,7 @@ def verify(spec: Spec, facts: list[Fact], res: Resolution, api: dict, inputs_tex
         nums = numbers_in(q)
         if float(value) in nums:
             return
-        if float(value) - 1 in nums and RETRY_RE.search(q):
+        if value == 2 and RETRY_RE.search(q):
             return  # "try once more" = 2 attempts in total: a derived count
         if not nums:
             warn(path, f"{what} {value}: the cited quotes carry no number to check against")

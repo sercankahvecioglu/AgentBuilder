@@ -22,7 +22,7 @@ TEXT_FIELDS = {
     "when", "trigger_description", "meaning", "ask_text", "agent_instruction", "intro_instruction",
     "say_text", "instruction", "explain_once_text", "fail_message", "failure_say",
     "change_after_record_text", "robot_question_reply", "agent_self_description", "note",
-    "default_applied", "template",
+    "default_applied", "template", "first_sentence", "ask_once_text",
 }
 # list-of-object alignment keys by path (regex on the dotted path without indices)
 LIST_KEYS = {
