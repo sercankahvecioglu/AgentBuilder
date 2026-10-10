@@ -15,3 +15,4 @@ __pycache__/
 
 # builder working artifacts
 out/
+dev/spikes/*_run*.json
