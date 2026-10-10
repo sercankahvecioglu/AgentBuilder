@@ -181,7 +181,7 @@ class IdentityQuestion(Strict):
 
 
 class Swapped(Strict):
-    hint_value: S = Field(description="The hint value the tool returns, e.g. 'day_month_swapped'; '' if none.")
+    hint_value: S = Field(description="The hint value the identity tool returns when the date parts are swapped (from the tool API response enum); '' if none.")
     instruction: S = Field(description="What to ask the customer when the hint comes back.")
     counts_as_wrong: B
 
@@ -231,7 +231,7 @@ class Band(Strict):
 
 class ProductLabel(Strict):
     product_type: str = Field(description="Value of the product type enum in the tool API.")
-    template: str = Field(description="How to name it in words, with fields in braces, e.g. 'credit card ending {card_last4}'.")
+    template: str = Field(description="How to name the product in words, with product fields in braces, e.g. 'mortgage ending {account_suffix}' or just 'overdraft'.")
     fact_ids: list[str]
 
 
