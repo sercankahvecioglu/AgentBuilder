@@ -185,7 +185,8 @@ class Generator:
                 "below_floor_offer_floor_once": bool(tv(s.amounts.below_floor.offer_floor_once)),
             },
             "intents": [it.model_dump() for it in s.special_intents],
-            "recording": {"max_attempts": int(tv(s.recording.max_attempts)), "failure_note_reason": tv(s.recording.failure_note_reason)},
+            "recording": {"max_attempts": int(tv(s.recording.max_attempts)), "failure_note_reason": tv(s.recording.failure_note_reason),
+                          "failure_outcome": s.recording.failure_close.outcome, "failure_reason": s.recording.failure_close.reason, "failure_say": tv(s.recording.failure_say)},
             "closing": {
                 "rows": [{"outcome": o, "reason": r} for o, r in self.rows],
                 "promise_key": promise_rows[0] if promise_rows else fallback, "fallback_key": fallback,

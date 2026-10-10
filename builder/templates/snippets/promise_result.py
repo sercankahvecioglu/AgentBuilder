@@ -34,6 +34,8 @@ try:
                 table[idx] = p
                 _save('products_json', table)
             vars['write_failed'] = 'yes'
+            if not CONST.get('multi'):
+                _set_close(REC.get('failure_outcome'), REC.get('failure_reason'), _s(REC.get('failure_say')))
             nxt = 'promise_guard'
             more = False
             for row in table:

@@ -66,6 +66,8 @@ try:
         return _f(q.get('past_due'))
 
     def _propose(q, amount, d, why=''):
+        if _s(vars.get('prop_all')) == '1' and why.find('for all products') < 0:
+            vars['prop_all'] = ''
         q['prop_amount'] = float(amount)
         q['prop_date'] = d.isoformat()
         lab = (' for the ' + _s(q.get('label'))) if MULTI else ''
@@ -163,6 +165,10 @@ try:
 
     def _agree_all(d, amount_rule='full'):
         # one date for every open product; a product whose deadline is earlier gets its own deadline (and says so)
+        if not _is_bd(d):
+            vars['prop_all'] = '1'
+            return ('negotiate', _propose(p, _f(p.get('past_due')), _next_bd(d), 'Say that ' + _fmt(d) + ' is not a business day and offer the next business day for all products.'))
+        vars['prop_all'] = ''
         for k in _open_idx():
             q = table[k]
             dd = d
@@ -178,6 +184,7 @@ try:
                     continue
             amount = _f(q.get('past_due')) if amount_rule == 'full' else _default_amount(q)
             _agree(q, amount, dd, note)
+        return None
 
     def _after_agree():
         # single product → read back; multi → next open product or read back
@@ -233,9 +240,9 @@ try:
                 hint = 'Repeat your last question or proposal.'
     elif pay == 'yes_today':
         if MULTI and (scope == 'all' or (scope != 'current' and len(_open_idx()) > 1 and _i(vars.get('asked_all')) == 0)):
-            _agree_all(today)
+            res = _agree_all(today)
             vars['asked_all'] = '1'
-            nxt, hint = _after_agree()
+            nxt, hint = res if res else _after_agree()
         else:
             amount = _default_amount(p)
             d = dsaid if (kind == 'date' and dsaid is not None) else today
@@ -243,7 +250,10 @@ try:
             if nxt == 'agreed':
                 nxt, hint = _after_agree()
     elif pay == 'accepts_offer':
-        if _f(p.get('prop_amount')) > 0 and _d(p.get('prop_date')) is not None:
+        if MULTI and _s(vars.get('prop_all')) == '1' and _d(p.get('prop_date')) is not None:
+            res = _agree_all(_d(p.get('prop_date')))
+            nxt, hint = res if res else _after_agree()
+        elif _f(p.get('prop_amount')) > 0 and _d(p.get('prop_date')) is not None:
             _agree(p, _f(p.get('prop_amount')), _d(p.get('prop_date')))
             nxt, hint = _after_agree()
         else:
@@ -278,9 +288,9 @@ try:
                 if dsaid < today:
                     hint = _propose(p, amount, _next_bd(today), 'That day has already passed.')
                 else:
-                    _agree_all(dsaid)
+                    res = _agree_all(dsaid)
                     vars['asked_all'] = '1'
-                    nxt, hint = _after_agree()
+                    nxt, hint = res if res else _after_agree()
             else:
                 nxt, hint = _with_date(p, dsaid, amount)
                 if nxt == 'agreed':
