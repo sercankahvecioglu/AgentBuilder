@@ -1,0 +1,14 @@
+# secrets
+.env
+.env.*
+!.env.example
+env.sh
+
+# run state and outputs written by freya.py, run_cases.py and the builder
+.freya-agents.json
+.personas.json
+results/
+traces/
+
+__pycache__/
+.DS_Store
