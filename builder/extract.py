@@ -4,8 +4,9 @@ The prompts are generic: they describe the schema vocabulary, never a bank's val
 Every call goes through builder.llm.structured (structured outputs, explicit effort, trace line).
 
 CLI (development):
-    python -m builder.extract briefs/brief-a.md tools/openapi.json --out out/brief-a [--effort high]
+    python -m builder.extract <brief files...> <tool_api.json> --out out/<slot> [--effort high] [--votes 3] [--no-verify]
 writes <out>.facts.json, <out>.resolution.json, <out>.spec.json and <out>.trace.txt
+In code: extract(brief_text, api_summary, trace, effort, votes=, verify_inputs_text=) -> (facts, resolution, spec, issues)
 """
 from __future__ import annotations
 
@@ -160,8 +161,7 @@ def fill_spec(governing: list[Fact], res: Resolution, api: dict[str, Any], trace
 # ---------------------------------------------------------------------------
 
 
-def extract(brief: str, api_sum: dict[str, Any], trace: Trace | None, effort: str = "high",
-            out_prefix: str | None = None) -> tuple[Extraction, Resolution, Spec]:
+def _one_extraction(brief: str, api_sum: dict[str, Any], trace: Trace | None, effort: str) -> tuple[Extraction, Resolution, Spec]:
     ex, _ = extract_facts(brief, api_sum, trace, effort)
     if trace:
         trace.kv("facts", f"{len(ex.facts)} ({sum(f.kind == 'decision' for f in ex.facts)} decisions, "
@@ -171,13 +171,69 @@ def extract(brief: str, api_sum: dict[str, Any], trace: Trace | None, effort: st
         for n in res.notes:
             trace.line("RESOLVE " + n)
         trace.kv("governing facts", len(res.governing_ids))
-    if out_prefix:
-        _write(out_prefix + ".facts.json", dump_model(ex))
-        _write(out_prefix + ".resolution.json", dump_model(res))
     spec, _ = fill_spec(res.governing(ex.facts), res, api_sum, trace, effort)
+    return ex, res, spec
+
+
+def extract(brief: str, api_sum: dict[str, Any], trace: Trace | None, effort: str = "high",
+            out_prefix: str | None = None, votes: int = 1, verify_inputs_text: str = "",
+            reextract: bool = True) -> tuple[Extraction, Resolution, Spec, list]:
+    """Full extract stage. Returns (facts, resolution, spec, verify issues).
+
+    votes > 1: that many independent 1a→resolve→1b runs in parallel, merged by field-wise majority (builder.vote);
+    the facts and resolution of the first run are kept as the provenance set (fact ids differ between runs, so the
+    merged spec's fact_ids are the union of the winning votes' ids and may reference any run's facts).
+    verify_inputs_text: when given, builder.verify runs and errors trigger one re-fill (1b) with feedback (T4.3).
+    """
+    from builder.verify import errors as _errors, feedback as _feedback, verify as _verify
+
+    if votes <= 1:
+        ex, res, spec = _one_extraction(brief, api_sum, trace, effort)
+        all_facts = list(ex.facts)
+    else:
+        from concurrent.futures import ThreadPoolExecutor
+
+        from builder.vote import vote
+
+        with ThreadPoolExecutor(max_workers=votes) as pool:
+            runs = list(pool.map(lambda _: _one_extraction(brief, api_sum, trace, effort), range(votes)))
+        ex, res, _ = runs[0]
+        merged, disputes = vote([r[2].model_dump() for r in runs])
+        spec = Spec.model_validate(merged)
+        all_facts = [f for r in runs for f in r[0].facts]
+        if trace:
+            trace.kv("votes", f"{votes} runs, {len(disputes)} disputed leaves")
+            for d in disputes:
+                trace.line(f"VOTE DISPUTE {d.path}: {d.how}; chosen={d.chosen!r} votes={d.votes!r}"[:400])
+        # provenance for verify: union of all runs' facts and governing ids
+        gov = set(res.governing_ids)
+        for r in runs[1:]:
+            gov |= set(r[1].governing_ids)
+        res = res.model_copy(update={"governing_ids": sorted(gov)})
+    if out_prefix:
+        _write(out_prefix + ".facts.json", dump_model(Extraction(facts=all_facts, conflicts=ex.conflicts)))
+        _write(out_prefix + ".resolution.json", dump_model(res))
+
+    issues: list = []
+    if verify_inputs_text:
+        issues = _verify(spec, all_facts, res, api_sum, verify_inputs_text)
+        errs = _errors(issues)
+        if trace:
+            trace.kv("verify", f"{len(errs)} error(s), {len(issues) - len(errs)} warning(s)")
+            for i in issues:
+                trace.line("VERIFY " + str(i))
+        if errs and reextract:
+            spec2, _ = fill_spec(res.governing(all_facts), res, api_sum, trace, effort, feedback=_feedback(issues))
+            issues2 = _verify(spec2, all_facts, res, api_sum, verify_inputs_text)
+            if len(_errors(issues2)) <= len(errs):
+                spec, issues = spec2, issues2
+                if trace:
+                    trace.kv("verify after re-extract", f"{len(_errors(issues2))} error(s)")
+            elif trace:
+                trace.warn("re-extract was worse; keeping the first spec")
     if out_prefix:
         _write(out_prefix + ".spec.json", dump_model(spec))
-    return ex, res, spec
+    return ex, res, spec, issues
 
 
 def _write(path: str, text: str) -> None:
@@ -191,6 +247,8 @@ def main(argv=None) -> int:
     ap.add_argument("inputs", nargs="+", help="brief text files and the tool API (.json/.yaml)")
     ap.add_argument("--out", default="out/extract", help="output prefix")
     ap.add_argument("--effort", default="high")
+    ap.add_argument("--votes", type=int, default=1)
+    ap.add_argument("--no-verify", action="store_true")
     a = ap.parse_args(argv)
     texts, api_path = split_args(a.inputs)
     brief = load_text_inputs(texts)
@@ -198,7 +256,8 @@ def main(argv=None) -> int:
     trace = Trace(a.out + ".trace.txt")
     trace.start("python -m builder.extract " + " ".join(a.inputs), a.inputs)
     try:
-        extract(brief, api_sum, trace, a.effort, out_prefix=a.out)
+        extract(brief, api_sum, trace, a.effort, out_prefix=a.out, votes=a.votes,
+                verify_inputs_text="" if a.no_verify else brief)
         trace.end("ok")
         return 0
     except Exception as e:  # noqa: BLE001
