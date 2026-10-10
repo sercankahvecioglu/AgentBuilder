@@ -286,6 +286,7 @@ The schedule, the cut order and the definition of done are in DEV_PLAN.md §3 an
   - send the form before 20:00
 
 ## Changelog
+- 2026-10-10 23:50 UTC: Phase 6 static tests (`builder/static_tests.py`: lint, data-flow of placeholders, calendar/guard/close/callback/failure/aggregation invariants on 17 `now` dates; ~650 checks in 1 s) and Phase 7 CLI (`builder/build.py`: extract via Track B → generate → static tests → save → chat smoke → export → trace; 15 s with `--spec`, verified on slot `mock`). Static tests found and fixed two gaps (single-product failure close, all-products proposal on a non-business day). B at reps 1: 2/3, PUB-12 failed on the judge (car loan got two proposals) → ISS-001 fixed (`nego_cmd`). Generator output is byte-identical across runs. Own cases for the top-6 gaps in `dev/cases/own_a.json` (local flows 6/6).
 - 2026-10-10 23:20 UTC: Phase 5 MVP generated from gold A (`builder/generate.py`, 66 nodes, G2 writes, per-outcome close nodes, goodbye node): **10/10 on PUB-01..10 at reps 1** (160 s, median slowest turn 6 s, worst 28 s; `results/mvp1.log`, agent 566c6109 in slot `brief-a`). Local flow simulator `builder/flowsim.py` + `dev/cases/flows_a.py`/`flows_b.py` pass 10/10 and 3/3. T5.5 multi-product generated into slot `brief-ab`; platform run on B started.
 - 2026-10-10: created from the planning conversation (pipeline design, τ^τ-Bench lessons, deep research) and checked against the hackathon page.
 - 2026-10-10: corrections C1-C10 added with DEV_PLAN.md; D1, D7 and D9 updated.

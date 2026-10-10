@@ -15,8 +15,12 @@ from typing import Any, Dict, List, Optional
 class FakeBank:
     """Minimal stand-in for the bank mock: identity answers, products, fault injection, ledger."""
 
-    def __init__(self, identity: Dict[str, str], products: List[dict], faults: Optional[List[dict]] = None, max_wrong: int = 3):
+    def __init__(self, identity: Dict[str, str], products: List[dict], faults: Optional[List[dict]] = None, max_wrong: int = 3,
+                 date_fields: Optional[List[str]] = None, swap_hint: str = "swapped"):
         self.identity = identity
+        # identity fields whose answers are ISO dates, and the hint value for a day/month swap: both come from the tool API
+        self.date_fields = date_fields if date_fields is not None else [k for k in identity if "date" in k or "birth" in k]
+        self.swap_hint = swap_hint
         self.products = [dict(p, product_id=f"p{i + 1}") for i, p in enumerate(products)]
         self.faults = {f["tool"]: dict(f) for f in (faults or [])}
         self.max_wrong = max_wrong
@@ -39,7 +43,7 @@ class FakeBank:
         if name == "verify_identity":
             field, answer = body.get("field"), str(body.get("answer", ""))
             exp = str(self.identity.get(field, ""))
-            if field == "date_of_birth" and not re.match(r"^\d{4}-\d{2}-\d{2}$", answer):
+            if field in self.date_fields and not re.match(r"^\d{4}-\d{2}-\d{2}$", answer):
                 out = {"ok": False, "error": "unreadable date"}
             elif self.wrong >= self.max_wrong:
                 out = {"ok": False, "error": "check ended"}
@@ -49,8 +53,8 @@ class FakeBank:
             else:
                 self.wrong += 1
                 out = {"ok": True, "verified": False, "wrong_answers_left": self.max_wrong - self.wrong, "all_verified": False}
-                if field == "date_of_birth" and len(answer) == 10 and len(exp) == 10 and answer[:4] == exp[:4] and answer[5:7] == exp[8:10] and answer[8:10] == exp[5:7]:
-                    out["hint"] = "day_month_swapped"
+                if field in self.date_fields and len(answer) == 10 and len(exp) == 10 and answer[:4] == exp[:4] and answer[5:7] == exp[8:10] and answer[8:10] == exp[5:7]:
+                    out["hint"] = self.swap_hint
         elif name == "get_account":
             if len(self.verified) < len(self.identity):
                 out = {"ok": False, "error": "identity not verified"}

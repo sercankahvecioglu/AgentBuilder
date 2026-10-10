@@ -24,6 +24,8 @@ from builder.generate import WEEKDAY_NAMES, row_key, tv  # noqa: E402
 from builder.openapi_tools import parse_api  # noqa: E402
 from builder.schema import Spec  # noqa: E402
 
+_API = [None]
+
 
 class T:
     def __init__(self):
@@ -115,9 +117,13 @@ def verified_turns(spec: Spec, ident: Dict[str, str]) -> List[dict]:
     return t
 
 
-def run(wf, spec, products, turns, now, faults=None, ident=None):
+def run(wf, spec, products, turns, now, faults=None, ident=None, api=None):
     ident = ident or identity_for(spec)
-    bank = FakeBank(ident, products, faults, max_wrong=int(tv(spec.identity.max_wrong_total)))
+    api = api or _API[0]
+    vq = next((op for op in api.ops.values() if any(sch.get("enum") for f, sch in op.fields.items() if f != tv(spec.roles.customer_id_var))), None)
+    hint_enum = list(((vq.response.get("hint") or {}).get("enum") or [])) if vq else []
+    bank = FakeBank(ident, products, faults, max_wrong=int(tv(spec.identity.max_wrong_total)),
+                    date_fields=[k for k in ident if "date" in k or "birth" in k], swap_hint=(tv(spec.identity.swapped.hint_value) or (hint_enum[0] if hint_enum else "swapped")))
     v = {tv(spec.roles.customer_id_var): "c_static", tv(spec.roles.now_var): now.isoformat() + "T11:00"}
     for cv in spec.call_variables:
         v.setdefault(cv.name, "x")
@@ -347,6 +353,7 @@ def main(argv=None):
     spec = Spec.model_validate(json.load(open(argv[1])))
     api_path = argv[argv.index("--api") + 1] if "--api" in argv else str(ROOT / "tools" / "openapi.json")
     api = parse_api(api_path)
+    _API[0] = api
     t = T()
     lint(t, wf, spec, api)
     invariants(t, wf, spec, api)
