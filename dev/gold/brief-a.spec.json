@@ -2,20 +2,19 @@
  "bank_name": {
   "value": "Freya Bank",
   "fact_ids": [
-   "A-S0"
+   "A-S1"
   ]
  },
  "language": {
   "value": "English",
   "fact_ids": [
-   "A-S0"
+   "IMPL"
   ]
  },
  "agent_self_description": {
-  "value": "Freya Bank's digital assistant",
+  "value": "a digital assistant calling from Freya Bank",
   "fact_ids": [
-   "A-R1",
-   "A-R4"
+   "A-R1"
   ]
  },
  "call_variables": [
@@ -78,7 +77,8 @@
  "opening": {
   "required_elements": {
    "values": [
-    "you are a digital assistant calling from Freya Bank",
+    "digital assistant",
+    "calling from Freya Bank",
     "the call is recorded"
    ],
    "fact_ids": [
@@ -153,7 +153,8 @@
   "say_only_opening": {
    "value": true,
    "fact_ids": [
-    "A-R5"
+    "A-R5",
+    "A-R1"
    ]
   },
   "ask_when_reachable": {
@@ -633,7 +634,8 @@
      "late"
     ],
     "fact_ids": [
-     "A-R30"
+     "A-R30",
+     "A-R26"
     ]
    }
   ],
@@ -706,10 +708,10 @@
   },
   "forbidden_offers": {
    "values": [
-    "a discount",
-    "a waiver",
-    "an instalment plan",
-    "any term that is not in the brief"
+    "discount",
+    "waiver",
+    "instalment plan",
+    "any term not in the brief"
    ],
    "fact_ids": [
     "A-R33"
@@ -722,7 +724,7 @@
    "trigger_description": "The customer mentions illness, a death in the family or job loss.",
    "allowed_before_identity": false,
    "applies_to": "all",
-   "say_text": "Say one short sentence of sympathy and make no persuasion attempt.",
+   "say_text": "One short sentence of sympathy.",
    "say_is_verbatim": false,
    "ask_once_first": true,
    "action_kind": "transfer",
@@ -749,7 +751,7 @@
    "trigger_description": "The customer says they already paid this past-due amount.",
    "allowed_before_identity": false,
    "applies_to": "all",
-   "say_text": "Say that payments can take one business day to appear. Take no promise.",
+   "say_text": "Say that payments can take one business day to appear.",
    "say_is_verbatim": false,
    "ask_once_first": false,
    "action_kind": "none",
@@ -773,7 +775,7 @@
   },
   {
    "key": "dispute",
-   "trigger_description": "The customer says the debt is not theirs, they never had this product, or it was closed or paid off in the past.",
+   "trigger_description": "The customer says the debt is not theirs, they never had the product, or the product was closed or paid off in the past.",
    "allowed_before_identity": false,
    "applies_to": "all",
    "say_text": "Do not argue and do not take a promise.",
@@ -827,10 +829,10 @@
   },
   {
    "key": "wants_human",
-   "trigger_description": "The customer asks to speak to a human or a real person.",
+   "trigger_description": "The customer asks for a human.",
    "allowed_before_identity": true,
    "applies_to": "all",
-   "say_text": "Ask once whether you can help first.",
+   "say_text": "",
    "say_is_verbatim": false,
    "ask_once_first": true,
    "action_kind": "transfer",
@@ -841,11 +843,11 @@
    "close_reason": "human",
    "declined_close_outcome": "",
    "declined_close_reason": "",
-   "before_identity_close_outcome": "transferred",
-   "before_identity_close_reason": "human",
+   "before_identity_close_outcome": "",
+   "before_identity_close_reason": "",
    "continue_call": false,
    "continue_other_products": false,
-   "precedence": 40,
+   "precedence": 30,
    "suppresses_persuasion": false,
    "customer_named_terms_still_recorded": false,
    "fact_ids": [
@@ -855,7 +857,7 @@
   },
   {
    "key": "not_talk",
-   "trigger_description": "The customer says they do not want to talk (the second time closes the call).",
+   "trigger_description": "The customer says they do not want to talk.",
    "allowed_before_identity": true,
    "applies_to": "all",
    "say_text": "",
@@ -873,7 +875,7 @@
    "before_identity_close_reason": "declined",
    "continue_call": false,
    "continue_other_products": false,
-   "precedence": 50,
+   "precedence": 40,
    "suppresses_persuasion": false,
    "customer_named_terms_still_recorded": false,
    "fact_ids": [
@@ -882,7 +884,7 @@
   },
   {
    "key": "robot_question",
-   "trigger_description": "The customer asks whether they are talking to a robot or an AI.",
+   "trigger_description": "The customer asks whether this is a robot or an AI.",
    "allowed_before_identity": true,
    "applies_to": "all",
    "say_text": "Say that you are Freya Bank's digital assistant and continue.",
@@ -933,6 +935,33 @@
    "fact_ids": [
     "A-R43"
    ]
+  },
+  {
+   "key": "unknown_question",
+   "trigger_description": "A question the agent cannot answer from the tools.",
+   "allowed_before_identity": true,
+   "applies_to": "all",
+   "say_text": "Say you do not have that information. Do not invent figures, dates or reasons.",
+   "say_is_verbatim": false,
+   "ask_once_first": false,
+   "action_kind": "none",
+   "action_queue": "",
+   "action_note_reason": "",
+   "count_before_action": 1,
+   "close_outcome": "",
+   "close_reason": "",
+   "declined_close_outcome": "",
+   "declined_close_reason": "",
+   "before_identity_close_outcome": "",
+   "before_identity_close_reason": "",
+   "continue_call": true,
+   "continue_other_products": false,
+   "precedence": 90,
+   "suppresses_persuasion": false,
+   "customer_named_terms_still_recorded": false,
+   "fact_ids": [
+    "A-R44"
+   ]
   }
  ],
  "confirmation": {
@@ -971,7 +1000,7 @@
    ]
   },
   "change_after_record_text": {
-   "value": "A recorded promise cannot be changed or cancelled in this call; say they can change it in the mobile app.",
+   "value": "Say they can change it in the mobile app.",
    "fact_ids": [
     "A-R36"
    ]
@@ -997,7 +1026,7 @@
    ]
   },
   "failure_say": {
-   "value": "Say that you could not record the promise.",
+   "value": "Say you could not record it.",
    "fact_ids": [
     "A-R37"
    ]
@@ -1012,7 +1041,7 @@
   "failure_note_reason": {
    "value": "",
    "fact_ids": [
-    "A-R46"
+    "A-S12"
    ]
   }
  },
@@ -1086,44 +1115,43 @@
   "note_unpromised_products": {
    "value": false,
    "fact_ids": [
-    "A-R46"
+    "A-S12"
    ]
   },
   "note_even_when_no_promise": {
    "value": false,
    "fact_ids": [
-    "A-R46"
+    "A-S12"
    ]
   },
   "note_reasons": {
    "values": [],
    "fact_ids": [
-    "A-R46"
+    "A-S12"
    ]
   },
   "notes_on_transfer": {
    "value": false,
    "fact_ids": [
-    "A-R46"
+    "A-S12"
    ]
   },
   "unrecorded_on_transfer_are_dropped": {
-   "value": true,
+   "value": false,
    "fact_ids": [
-    "A-R46"
+    "A-S1"
    ]
   },
   "recorded_before_transfer_stay": {
    "value": true,
    "fact_ids": [
-    "A-R46"
+    "A-S12"
    ]
   },
   "single_product_dispute_or_paid_continues": {
    "value": false,
    "fact_ids": [
-    "A-R39",
-    "A-R40"
+    "A-S1"
    ]
   }
  },
@@ -1152,7 +1180,7 @@
     "reason": "",
     "when": "at least one promise was recorded",
     "fact_ids": [
-     "A-R46"
+     "A-S12"
     ]
    },
    {
@@ -1160,7 +1188,8 @@
     "reason": "",
     "when": "rule 39",
     "fact_ids": [
-     "A-R46"
+     "A-S12",
+     "A-R39"
     ]
    },
    {
@@ -1168,7 +1197,8 @@
     "reason": "restructuring",
     "when": "rule 41",
     "fact_ids": [
-     "A-R46"
+     "A-S12",
+     "A-R41"
     ]
    },
    {
@@ -1176,7 +1206,8 @@
     "reason": "human",
     "when": "rule 42",
     "fact_ids": [
-     "A-R46"
+     "A-S12",
+     "A-R42"
     ]
    },
    {
@@ -1184,7 +1215,8 @@
     "reason": "support",
     "when": "rule 32",
     "fact_ids": [
-     "A-R46"
+     "A-S12",
+     "A-R32"
     ]
    },
    {
@@ -1192,7 +1224,9 @@
     "reason": "refused",
     "when": "rules 31 and 45",
     "fact_ids": [
-     "A-R46"
+     "A-S12",
+     "A-R31",
+     "A-R45"
     ]
    },
    {
@@ -1200,7 +1234,8 @@
     "reason": "hardship",
     "when": "rule 32",
     "fact_ids": [
-     "A-R46"
+     "A-S12",
+     "A-R32"
     ]
    },
    {
@@ -1208,7 +1243,8 @@
     "reason": "dispute",
     "when": "rule 40",
     "fact_ids": [
-     "A-R46"
+     "A-S12",
+     "A-R40"
     ]
    },
    {
@@ -1216,7 +1252,8 @@
     "reason": "service_error",
     "when": "rule 37",
     "fact_ids": [
-     "A-R46"
+     "A-S12",
+     "A-R37"
     ]
    },
    {
@@ -1224,7 +1261,8 @@
     "reason": "failed",
     "when": "rule 14",
     "fact_ids": [
-     "A-R46"
+     "A-S12",
+     "A-R14"
     ]
    },
    {
@@ -1232,7 +1270,8 @@
     "reason": "declined",
     "when": "rule 15",
     "fact_ids": [
-     "A-R46"
+     "A-S12",
+     "A-R15"
     ]
    },
    {
@@ -1240,7 +1279,8 @@
     "reason": "callback",
     "when": "rule 6",
     "fact_ids": [
-     "A-R46"
+     "A-S12",
+     "A-R6"
     ]
    },
    {
@@ -1248,7 +1288,8 @@
     "reason": "no_callback",
     "when": "rule 7",
     "fact_ids": [
-     "A-R46"
+     "A-S12",
+     "A-R7"
     ]
    },
    {
@@ -1256,7 +1297,8 @@
     "reason": "wrong_number",
     "when": "rule 8",
     "fact_ids": [
-     "A-R46"
+     "A-S12",
+     "A-R8"
     ]
    },
    {
@@ -1264,7 +1306,8 @@
     "reason": "deceased",
     "when": "rule 9",
     "fact_ids": [
-     "A-R46"
+     "A-S12",
+     "A-R9"
     ]
    },
    {
@@ -1272,7 +1315,8 @@
     "reason": "unclear",
     "when": "rule 3",
     "fact_ids": [
-     "A-R46"
+     "A-S12",
+     "A-R3"
     ]
    }
   ],
@@ -1280,34 +1324,34 @@
    "promise_wins": {
     "value": true,
     "fact_ids": [
-     "A-R46"
+     "A-S12"
     ]
    },
    "transfer_wins_over_promise": {
     "value": true,
     "fact_ids": [
-     "A-R46"
+     "A-S12"
     ]
    },
    "all_noted_as": [],
    "else_rule": {
     "value": "",
     "fact_ids": [
-     "A-R46"
+     "A-S12"
     ]
    }
   },
   "note_tool_used": {
    "value": false,
    "fact_ids": [
-    "A-R46"
+    "A-S12"
    ]
   }
  },
  "required_phrases": [
   {
    "text": "Am I speaking with {title} {last_name}?",
-   "when": "after the opening sentence",
+   "when": "opening confirm question",
    "stage": "opening",
    "fact_ids": [
     "A-R2"
@@ -1315,7 +1359,7 @@
   },
   {
    "text": "I am sorry for your loss.",
-   "when": "when told the customer has died",
+   "when": "a third party says the customer has died",
    "stage": "third_party",
    "fact_ids": [
     "A-R9"
@@ -1323,7 +1367,7 @@
   },
   {
    "text": "Can you make this payment today?",
-   "when": "the first question about paying",
+   "when": "first question after stating the debt",
    "stage": "negotiation",
    "fact_ids": [
     "A-R28"
@@ -1339,7 +1383,7 @@
   },
   {
    "text": "You will receive a text message confirming this promise.",
-   "when": "after a recorded promise",
+   "when": "after create_promise returned ok",
    "stage": "recording",
    "fact_ids": [
     "A-R38"
@@ -1348,17 +1392,24 @@
  ],
  "behaviour_rules": [
   {
-   "agent_instruction": "If asked something you cannot answer from the tools, say you do not have that information. Do not invent figures, dates or reasons.",
+   "agent_instruction": "Do not say collections, debt, payment or the product before identity is verified. This applies to everyone, including relatives.",
    "stage": "global",
    "fact_ids": [
-    "A-R44"
+    "A-R1"
    ]
   },
   {
-   "agent_instruction": "Never offer a discount, a waiver, an instalment plan or any term that is not in the brief.",
-   "stage": "negotiation",
+   "agent_instruction": "If the customer asks whether you are a robot or an AI, say that you are Freya Bank's digital assistant and continue.",
+   "stage": "global",
    "fact_ids": [
-    "A-R33"
+    "A-R4"
+   ]
+  },
+  {
+   "agent_instruction": "With someone else on the line, do not say why you are calling; say nothing beyond the opening sentence and ask when the customer can be reached.",
+   "stage": "third_party",
+   "fact_ids": [
+    "A-R5"
    ]
   },
   {
@@ -1369,25 +1420,213 @@
    ]
   },
   {
-   "agent_instruction": "Ask the security questions one at a time. A wrong answer may be asked again.",
+   "agent_instruction": "Send a date of birth as YYYY-MM-DD, whatever way the customer said it. Read a date given only as numbers as day, then month, then year.",
    "stage": "identity",
    "fact_ids": [
-    "A-R11",
-    "A-R12"
+    "A-R11"
    ]
   },
   {
-   "agent_instruction": "Never repeat an offer the customer already refused.",
+   "agent_instruction": "If the date of birth comes back with the hint day_month_swapped, ask the customer to say the month as a word; that retry does not count as a wrong answer.",
+   "stage": "identity",
+   "fact_ids": [
+    "A-R13"
+   ]
+  },
+  {
+   "agent_instruction": "After three wrong answers, do not state the debt; tell the customer to use the mobile app or a branch.",
+   "stage": "identity",
+   "fact_ids": [
+    "A-R14"
+   ]
+  },
+  {
+   "agent_instruction": "If the customer does not want to answer, explain once that the questions protect their account; asking what the call is about instead of answering counts as declining.",
+   "stage": "identity",
+   "fact_ids": [
+    "A-R15"
+   ]
+  },
+  {
+   "agent_instruction": "Say that you are calling from the collections team about a late payment; name the product in words; state the past-due amount and how many days late it is.",
+   "stage": "debt_statement",
+   "fact_ids": [
+    "A-R17"
+   ]
+  },
+  {
+   "agent_instruction": "A promise date must be today or later, a business day, and not after the deadline.",
+   "stage": "negotiation",
+   "fact_ids": [
+    "A-R19"
+   ]
+  },
+  {
+   "agent_instruction": "If the customer names a weekend day or a holiday that is not after the deadline, offer the next business day.",
+   "stage": "negotiation",
+   "fact_ids": [
+    "A-R20"
+   ]
+  },
+  {
+   "agent_instruction": "If the customer gives a vague period, ask once for the exact day; if they still give none, propose the deadline.",
+   "stage": "negotiation",
+   "fact_ids": [
+    "A-R21"
+   ]
+  },
+  {
+   "agent_instruction": "Next <weekday> means that weekday in the following calendar week; this <weekday> means the one in the current week.",
+   "stage": "negotiation",
+   "fact_ids": [
+    "A-R22"
+   ]
+  },
+  {
+   "agent_instruction": "If the customer asks for a date after the deadline, say the latest date you can record is the deadline and offer it; refusing the deadline is a flat refusal.",
+   "stage": "negotiation",
+   "fact_ids": [
+    "A-R23"
+   ]
+  },
+  {
+   "agent_instruction": "Ask for the full past-due amount first. Never ask how much the customer can pay; the agent proposes every amount.",
+   "stage": "negotiation",
+   "fact_ids": [
+    "A-R24"
+   ]
+  },
+  {
+   "agent_instruction": "If the full amount is too much, offer the floor once and say that the rest stays overdue; refusing the floor is a flat refusal.",
+   "stage": "negotiation",
+   "fact_ids": [
+    "A-R26"
+   ]
+  },
+  {
+   "agent_instruction": "Accept any amount from the floor up to the full amount, both included. Below the floor, say it cannot be recorded and offer the floor once.",
+   "stage": "negotiation",
+   "fact_ids": [
+    "A-R27"
+   ]
+  },
+  {
+   "agent_instruction": "A date or an amount the customer proposes is never a refusal.",
+   "stage": "negotiation",
+   "fact_ids": [
+    "A-R29"
+   ]
+  },
+  {
+   "agent_instruction": "A flat refusal or a non-answer uses one persuasion attempt; a no to paying today with no date and no amount is a flat refusal.",
+   "stage": "negotiation",
+   "fact_ids": [
+    "A-R30"
+   ]
+  },
+  {
+   "agent_instruction": "When the attempts are used up, stop and do not repeat an offer the customer already refused.",
    "stage": "negotiation",
    "fact_ids": [
     "A-R31"
    ]
   },
   {
-   "agent_instruction": "A recorded promise cannot be changed or cancelled in this call. If the customer asks, say they can change it in the mobile app.",
-   "stage": "recording",
+   "agent_instruction": "On illness, a death in the family or job loss: one short sentence of sympathy, no persuasion attempt, offer to connect to customer support; still record a promise if the customer names a date or an amount themselves.",
+   "stage": "special",
+   "fact_ids": [
+    "A-R32"
+   ]
+  },
+  {
+   "agent_instruction": "Never offer a discount, a waiver, an instalment plan or any term that is not in the brief.",
+   "stage": "global",
+   "fact_ids": [
+    "A-R33"
+   ]
+  },
+  {
+   "agent_instruction": "Read the product, the amount and the date back and ask for confirmation; record only after a clear yes.",
+   "stage": "confirmation",
+   "fact_ids": [
+    "A-R34"
+   ]
+  },
+  {
+   "agent_instruction": "If the customer changes the date or the amount at the read-back, check the new value and read it back again.",
+   "stage": "confirmation",
+   "fact_ids": [
+    "A-R35"
+   ]
+  },
+  {
+   "agent_instruction": "A recorded promise cannot be changed or cancelled in the same call; if asked, say they can change it in the mobile app.",
+   "stage": "confirmation",
    "fact_ids": [
     "A-R36"
+   ]
+  },
+  {
+   "agent_instruction": "Say the promise is recorded only after create_promise returns ok true; if it fails, try once more; if it fails again, say you could not record it.",
+   "stage": "recording",
+   "fact_ids": [
+    "A-R37"
+   ]
+  },
+  {
+   "agent_instruction": "Already paid: say that payments can take one business day to appear and take no promise.",
+   "stage": "special",
+   "fact_ids": [
+    "A-R39"
+   ]
+  },
+  {
+   "agent_instruction": "Dispute: do not argue and do not take a promise. A claim that the product was closed or paid off in the past is a dispute.",
+   "stage": "special",
+   "fact_ids": [
+    "A-R40"
+   ]
+  },
+  {
+   "agent_instruction": "Payment plan request: do not describe a plan; transfer to restructuring.",
+   "stage": "special",
+   "fact_ids": [
+    "A-R41"
+   ]
+  },
+  {
+   "agent_instruction": "Request for a human: ask once whether you can help first; if they insist, transfer to the general queue.",
+   "stage": "special",
+   "fact_ids": [
+    "A-R42"
+   ]
+  },
+  {
+   "agent_instruction": "Is this a scam: say they can verify the call by phoning Freya Bank's customer service number, and continue.",
+   "stage": "global",
+   "fact_ids": [
+    "A-R43"
+   ]
+  },
+  {
+   "agent_instruction": "For a question you cannot answer from the tools, say you do not have that information; do not invent figures, dates or reasons.",
+   "stage": "global",
+   "fact_ids": [
+    "A-R44"
+   ]
+  },
+  {
+   "agent_instruction": "If the customer says twice that they do not want to talk, close the call.",
+   "stage": "global",
+   "fact_ids": [
+    "A-R45"
+   ]
+  },
+  {
+   "agent_instruction": "Thank the customer and say goodbye before close_call.",
+   "stage": "closing",
+   "fact_ids": [
+    "A-R47"
    ]
   }
  ],
