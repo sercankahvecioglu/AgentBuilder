@@ -11,6 +11,25 @@ We put that phone agent in front of simulated customers. The share it handles co
 
 One simulated customer is one case. A step of a phone agent is called a node in the platform's documents.
 
+## Our builder (team entry)
+
+One command reads the brief files plus the tool API file and creates, tests, publishes and exports the phone agent:
+
+```bash
+pip install -r requirements.txt            # Python 3.10+; anthropic, pydantic
+cp .env.example .env && $EDITOR .env        # FREYA_API_KEY, FREYA_BANK_TEAM_KEY, ANTHROPIC_API_KEY
+set -a && source .env && set +a
+python3 builder/build.py briefs/brief-a.md tools/openapi.json --slot brief-a
+python3 builder/build.py briefs/brief-a.md briefs/brief-b.md tools/openapi.json --slot brief-ab
+```
+
+Inputs are any text files (md, txt, eml, csv); the last argument is the tool API. Outputs: `out/<slot>.spec.json`,
+`out/<slot>.workflow.json`, `submission/<slot>.workflow.json` (the export) and `submission/<slot>.trace.txt` (the trace:
+start and end time, every model call, what was created on Freya, the static tests and the smoke test).
+Options: `--votes 3` (three parallel extractions, field-wise majority), `--skip-smoke`, `--spec out/x.spec.json` (reuse a spec).
+Pipeline: extract facts and conflicts (Claude, structured output) → resolve conflicts in code → fill the spec → verify
+against the tool API → generate the workflow with code only → static tests → save and publish → chat smoke test → export.
+
 ## The ten-minute start
 
 You need Python 3.10 or newer.
