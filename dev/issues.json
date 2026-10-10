@@ -1,1 +1,27 @@
-[]
+[
+ {
+  "id": "ISS-001",
+  "title": "Code-set `pay` command not seen by the next code node in the same turn (PUB-12: car loan got two proposals)",
+  "status": "tentatively-fixed",
+  "evidence": "results/mvp1-b.json PUB-12 call: product_done wrote pay=start_product and cur_idx=2; the following negotiation_router saw cur_idx=2 but pay as none, so it emitted 'Repeat your last question' and the model improvised a first car-loan proposal (Thu 15 Oct) before the real attempt-1 proposal (Fri 16 Oct). Judge: 'made two distinct attempts on the car loan'. Ledger was correct.",
+  "fix_history": [
+   {"at": "2026-10-11 01:45 UTC", "change": "Code never writes the extraction-owned `pay`; routers pass commands through a separate `nego_cmd` variable (readback_router, promise_guard, product_done). Verified locally (flows A 10/10, B 3/3); platform rerun pending."}
+  ]
+ },
+ {
+  "id": "ISS-002",
+  "title": "Model claimed 'I have recorded your promise' before any write when moving to the next product",
+  "status": "tentatively-fixed",
+  "evidence": "Same PUB-12 call, assistant turn after the credit-card agreement. Not flagged by the judge this time; an honesty risk.",
+  "fix_history": [
+   {"at": "2026-10-11 01:45 UTC", "change": "The next-product hint now says to note the agreement and read everything back at the end, and not to say it is recorded."}
+  ]
+ },
+ {
+  "id": "ISS-003",
+  "title": "Platform filler 'Bir saniye lütfen.' appears as an assistant message on a slow turn",
+  "status": "open",
+  "evidence": "PUB-12 call, after the state_debt turn (router chain). Not flagged by the judge. Cause: platform-side wait message on a long turn; not controlled by the workflow as far as the docs say.",
+  "fix_history": []
+ }
+]

@@ -14,7 +14,7 @@ try:
             p['pending_amount'] = _f(p.get('agreed_amount'))
             table[idx] = p
             _save('products_json', table)
-        vars['pay'] = 'proposes'
+        vars['nego_cmd'] = 'proposes'
         vars['stage'] = 'negotiation'
         nxt = 'negotiation_router'
     elif rb == 'refuses':
@@ -22,19 +22,19 @@ try:
             p['status'] = 'open'
             table[idx] = p
             _save('products_json', table)
-        vars['pay'] = 'refuses'
+        vars['nego_cmd'] = 'refuses'
         vars['stage'] = 'negotiation'
         _reset_date_parts()
         nxt = 'negotiation_router'
     elif rb == 'asks_question' or _intent(rb) is not None:
-        vars['pay'] = rb
+        vars['nego_cmd'] = rb
         vars['stage'] = 'negotiation'
         nxt = 'negotiation_router'
     else:
         n = _i(vars.get('rb_asks')) + 1
         vars['rb_asks'] = str(n)
         if n >= 3:
-            vars['pay'] = 'no_answer'
+            vars['nego_cmd'] = 'no_answer'
             vars['stage'] = 'negotiation'
             _reset_date_parts()
             nxt = 'negotiation_router'

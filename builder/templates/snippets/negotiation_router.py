@@ -11,6 +11,10 @@ try:
         idx = max(0, len(table) - 1)
     pay = _s(vars.get('pay')).lower()
     vars['pay'] = 'none'
+    cmd = _s(vars.get('nego_cmd')).lower()
+    vars['nego_cmd'] = ''
+    if cmd:
+        pay = cmd
     scope = _s(vars.get('applies_to')).lower()
     vars['applies_to'] = 'none'
     phint = _s(vars.get('product_hint')).lower()
@@ -180,12 +184,12 @@ try:
         opens = _open_idx()
         if MULTI and opens:
             vars['cur_idx'] = str(opens[0])
-            return _start_product(table[opens[0]])
+            return _start_product(table[opens[0]], 'Say that you have noted that and will read everything back at the end; do not say it is recorded.')
         return ('readback', '')
 
-    def _start_product(q):
+    def _start_product(q, lead=''):
         # next product begins at attempt 1 without asking about today again
-        return _next_attempt(q, 'Now the ' + _s(q.get('label')) + '.', False)
+        return _next_attempt(q, (lead + ' ' if lead else '') + 'Now the ' + _s(q.get('label')) + '.', False)
 
     if p is None:
         nxt, hint = 'wrap_up', ''

@@ -31,7 +31,7 @@ try:
             table[chosen] = p
             _save('products_json', table)
             vars['cur_idx'] = str(chosen)
-            vars['pay'] = 'proposes'
+            vars['nego_cmd'] = 'proposes'
             vars['d_ref'] = 'none'
             vars['nego_hint'] = ''
             nxt = 'negotiation_router'
