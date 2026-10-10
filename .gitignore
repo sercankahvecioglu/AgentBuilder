@@ -12,3 +12,6 @@ traces/
 
 __pycache__/
 .DS_Store
+
+# builder working artifacts
+out/
