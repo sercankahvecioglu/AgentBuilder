@@ -192,7 +192,10 @@ class Generator:
                 "promise_wins": bool(tv(agg.promise_wins)), "transfer_wins_over_promise": bool(tv(agg.transfer_wins_over_promise)),
                 "all_noted_as": [{"note_reason": a.reason, "outcome": a.outcome, "reason": ""} for a in agg.all_noted_as],
                 "else_outcome": else_out, "else_skip_reasons": skip,
+                "note_reasons": list(tv(s.multi_product.note_reasons)), "note_unpromised": bool(tv(s.multi_product.note_unpromised_products)),
+                "failure_note_reason": tv(s.recording.failure_note_reason), "exhausted_note_reason": exhausted_note,
             },
+            "date_over_deadline_use_product_deadline": bool(tv(s.multi_product.date_over_deadline_use_product_deadline_and_say_so)),
             "multi": self.multi,
         }
 
@@ -336,7 +339,13 @@ except Exception:
                 "refuses: a plain no or 'I cannot pay' with no day and no amount. no_answer: they avoid the question or change the subject. "
                 "vague: a period without an exact day, such as next week, the week after next, end of the month, when the salary comes. "
                 + self.intent_desc(keys) + " asks_question: a question to the agent that none of the above covers. none: nothing about paying.")
-        return [ev("pay", values, desc)] + self.date_parts("the payment") + [self.amount_part()]
+        return [ev("pay", values, desc)] + self.date_parts("the payment") + [self.amount_part()] + self.scope_parts()
+
+    def scope_parts(self) -> List[dict]:
+        if not self.multi:
+            return []
+        return [ev("applies_to", ["all", "current", "none"], "Based only on the latest message: all if the customer speaks about all products together (everything, all of them, both); current if about one product only; none if unclear."),
+                {"name": "product_hint", "type": "string", "min_confidence": MIN_CONF, "description": "The product the customer refers to in the latest message, in their own words (for example the card, the car loan); empty if none or if they mean all products."}]
 
     # ---- prompts
     def system_prompt(self) -> str:
@@ -449,7 +458,6 @@ except Exception:
                      "Based only on the customer's latest message: declines: they refuse to answer the security question; asks_purpose: they ask what the call is about instead of answering; "
                      + self.intent_desc(id_keys) + " none: they answered the question, asked how to answer, or said something else.")]
             n = conv_node(f"identity_q{i}", task, trans, extraction=ex, tools=[tool])
-            n["pre_enter_note"] = ""
             nodes[f"identity_q{i}"] = n
         # set id_node when entering each question: done through small code nodes is heavy; instead the router reads id_node set by id_router targets
         nodes["id_router"] = code_node("id_router", self.snippet("id_router"), "identity_q0",
@@ -486,7 +494,7 @@ except Exception:
         nodes["negotiation_router"] = code_node("negotiation_router", self.snippet("negotiation_router"), "negotiate",
                                                 [eq("readback", "nego_next", "readback"), eq("offer", "nego_next", "offer"), eq("wrap_up", "nego_next", "wrap_up"),
                                                  eq("resume_router", "nego_next", "resume_router"), eq("product_done", "nego_next", "product_done")])
-        nodes["product_done"] = code_node("product_done", self.snippet("product_done"), "wrap_up", [eq("negotiate", "pd_next", "negotiate"), eq("readback", "pd_next", "readback")])
+        nodes["product_done"] = code_node("product_done", self.snippet("product_done"), "wrap_up", [eq("negotiation_router", "pd_next", "negotiation_router"), eq("readback", "pd_next", "readback")])
 
         # 6 read-back
         conf = s.confirmation
@@ -496,7 +504,7 @@ except Exception:
         rb_vals = ["confirms", "changes", "refuses"] + rb_keys + ["asks_question", "none"]
         nodes["readback"] = conv_node("readback", rb_task, [always("readback_router")],
                                       extraction=[ev("rb", rb_vals, "Based only on the customer's latest message: confirms: a clear yes to the read-back; changes: they want another day or amount (name it in the other fields); refuses: they no longer want to promise; "
-                                                     + self.intent_desc(rb_keys) + " asks_question: a question; none: unclear.")] + self.date_parts("the payment") + [self.amount_part()])
+                                                     + self.intent_desc(rb_keys) + " asks_question: a question; none: unclear.")] + self.date_parts("the payment") + [self.amount_part()] + self.scope_parts())
         nodes["readback_router"] = code_node("readback_router", self.snippet("readback_router"), "readback",
                                              [eq("promise_guard", "rb_next", "promise_guard"), eq("negotiation_router", "rb_next", "negotiation_router")])
 
@@ -535,7 +543,21 @@ except Exception:
         nodes["resume_router"] = code_node("resume_router", self.snippet("resume_router"), "negotiate", [eq(n, "resume_next", n) for n in resumable if n != "negotiate"])
 
         # 10 closing
-        nodes["wrap_up"] = code_node("wrap_up", self.snippet("wrap_up"), "goodbye", [eq("pre_close", "wrap_next", "pre_close")])
+        nodes["wrap_up"] = code_node("wrap_up", self.snippet("wrap_up"), "goodbye", [eq("pre_close", "wrap_next", "pre_close"), eq("do_note", "wrap_next", "do_note")])
+        an = self._op_with_fields(["reason"]) or "add_note"
+        nf = self.api.op(an).fields
+        baked = {self.cid: "{{" + self.cid + "}}"}
+        omit = []
+        for f in nf:
+            if f == self.cid:
+                continue
+            if "product" in f:
+                baked[f] = "{{note_product}}"
+            elif "reason" in f:
+                baked[f] = "{{note_reason}}"
+            else:
+                omit.append(f)
+        nodes["do_note"] = api_node("do_note", api_tool(self.api, an, baked, omit=omit, post=self.hook_post_status("note_status", [], "Noted.")), "wrap_up", [])
         goodbye_task = ("{{goodbye_prefix}}\nThen, in the same turn, thank the customer for their time and say goodbye in one short sentence. "
                         "Do not ask anything else and do not call any tool.")
         nodes["goodbye"] = conv_node("goodbye", goodbye_task, [always("pre_close")])

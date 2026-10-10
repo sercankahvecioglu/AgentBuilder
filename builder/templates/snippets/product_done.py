@@ -1,27 +1,33 @@
-# product_done: the current product ended without agreement (attempts exhausted). Next product or wrap up.
+# product_done: the current product ended without agreement (attempts exhausted). Next product, read-back or wrap up.
 try:
     NEG = CONST.get('negotiation') or dict()
     table = _load('products_json', [])
-    idx = _i(vars.get('cur_idx'))
     nxt = 'wrap_up'
-    k = idx + 1
+    k = 0
+    opens = []
     while k < len(table):
         if table[k].get('status') == 'open':
-            vars['cur_idx'] = str(k)
-            vars['cur_label'] = _s(table[k].get('label'))
-            vars['nego_hint'] = 'Move on to the next product: ' + _s(table[k].get('label')) + ". Propose exactly: 'Could you pay " + _amt(table[k].get('past_due')) + ' on ' + _fmt(_next_bd(_today())) + "?'"
-            nxt = 'negotiate'
-            break
+            opens.append(k)
         k += 1
-    if nxt == 'wrap_up':
+    if opens:
+        vars['cur_idx'] = str(opens[0])
+        vars['cur_label'] = _s(table[opens[0]].get('label'))
+        vars['pay'] = 'start_product'
+        vars['nego_hint'] = 'Say you understand, then move on to the next product.'
+        nxt = 'negotiation_router'
+    else:
         agreed = [r for r in table if r.get('status') == 'agreed']
         if agreed:
             rb = []
             for row in agreed:
-                rb.append(_s(row.get('label')) + ': ' + _amt(row.get('agreed_amount')) + ' on ' + _fmt(_d(row.get('agreed_date'))))
+                line = _s(row.get('label')) + ': ' + _amt(row.get('agreed_amount')) + ' on ' + _fmt(_d(row.get('agreed_date')))
+                if _s(row.get('deadline_note')):
+                    line = line + ' (' + _s(row.get('deadline_note')) + ')'
+                rb.append(line)
             vars['readback_text'] = '; '.join(rb)
-            vars['rb_hint'] = ''
+            vars['rb_hint'] = 'Say you understand.'
             vars['rb'] = 'none'
+            vars['rb_asks'] = '0'
             vars['stage'] = 'readback'
             nxt = 'readback'
         else:
