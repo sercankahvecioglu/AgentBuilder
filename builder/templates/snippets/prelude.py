@@ -28,7 +28,7 @@ def _today():
 
 
 def _now_hhmm():
-    m = re.search(r'T(\d\d):(\d\d)', _s(vars.get(CONST.get('now_var') or 'now')))
+    m = re.search(r'[T ](\d\d):(\d\d)', _s(vars.get(CONST.get('now_var') or 'now')))
     if m:
         return m.group(1) + ':' + m.group(2)
     return '00:00'
