@@ -30,15 +30,17 @@ try:
         nxt = 'third_party'
     elif who == 'wrong_number':
         tp = CONST.get('third_party') or dict()
-        _set_close(tp.get('wrong_number_outcome'), tp.get('wrong_number_reason'), 'Apologise for the disturbance.')
+        _set_close(tp.get('wrong_number_outcome'), tp.get('wrong_number_reason'), '', 'I apologise for the disturbance.')
         nxt = 'wrap_up'
     elif who == 'deceased':
         tp = CONST.get('third_party') or dict()
         sent = _s(tp.get('deceased_sentence'))
         low = sent.lower().strip()
         instr = low.startswith(('say ', 'tell ', 'express ', 'state ', 'offer '))
-        pre = (sent if instr else ("Say exactly: '" + sent + "'" if sent else 'Express condolences in one sentence.')) + ' Ask nothing else.'
-        _set_close(tp.get('deceased_outcome'), tp.get('deceased_reason'), pre)
+        if sent and not instr:
+            _set_close(tp.get('deceased_outcome'), tp.get('deceased_reason'), '', sent)
+        else:
+            _set_close(tp.get('deceased_outcome'), tp.get('deceased_reason'), (sent if instr else 'Express condolences in one sentence.') + ' Ask nothing else.')
         nxt = 'wrap_up'
     elif _intent(who) is not None and not (_intent(who) or dict()).get('continue_call'):
         nxt = _apply_intent(who, 'opening') or 'opening'
@@ -61,7 +63,7 @@ try:
     else:
         if asks >= mx:
             op = CONST.get('opening') or dict()
-            _set_close(op.get('unclear_outcome'), op.get('unclear_reason'), 'Say you could not confirm who is on the line.')
+            _set_close(op.get('unclear_outcome'), op.get('unclear_reason'), '', 'I could not confirm who is on the line.')
             nxt = 'wrap_up'
         else:
             vars['confirm_asks'] = str(asks + 1)

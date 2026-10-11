@@ -100,5 +100,41 @@
   "status": "open",
   "evidence": "in_words PUB-10 call c4a387c6. Brief A rule 1 requires saying the call is recorded; the check text is the organisers' case check.",
   "fix_history": []
+ },
+ {
+  "id": "ISS-010",
+  "title": "talkative style 4/10: the simulated customer's turn arrives cut off mid-sentence; the fragment is extracted as no_answer and the non-answer rule burns the attempts (also the third-party callback)",
+  "status": "tentatively-fixed",
+  "evidence": "results/a-talkative-3.json: PUB-10 messages 'I've been so distracted planning for my cousin'' and 'I've been so busy with work' (cut), pay=no_answer at 0.92-1.0; PUB-02 third party 'Work has been so' (cut) \u2192 no_callback.",
+  "fix_history": [
+   {
+    "at": "2026-10-11 05:30 UTC",
+    "change": "A `fragment` extraction flags cut-off turns; a non-answer (or a refusal in a cut-off turn) gets one clarification ('Sorry, I did not catch your answer. Does that work for you?') before it counts as a persuasion attempt; the third-party node re-asks up to twice when no day or time was given, without using the outside-window budget."
+   }
+  ]
+ },
+ {
+  "id": "ISS-011",
+  "title": "asks_back style: 'why do you need that?' during a security question counted as declining; the second question closed the call as not verified; the goodbye re-asked the question",
+  "status": "tentatively-fixed",
+  "evidence": "results/a-asks_back-3.json PUB-01/04/05: id_reply=asks_purpose for 'Why do you need that?' and 'Which account is this about?' \u2192 not_verified/declined; goodbye node asked for the phone digits again.",
+  "fix_history": [
+   {
+    "at": "2026-10-11 05:30 UTC",
+    "change": "New id_reply value asks_why (answered with the protect-your-account explanation, no count); an answered security question resets the decline count; closes decided by code now use a fixed goodbye line (goodbye_tts) so nothing is re-asked."
+   }
+  ]
+ },
+ {
+  "id": "ISS-012",
+  "title": "A question asked together with an acceptance was dropped when the next step was the fixed read-back (PUB-04 rep: 'Are you a robot? Yes, I can pay on')",
+  "status": "tentatively-fixed",
+  "evidence": "results/a-reps3-4.json PUB-04 rep 2: asks=robot_question extracted, next node readback (tts), judge: 'failed to identify as a digital assistant'.",
+  "fix_history": [
+   {
+    "at": "2026-10-11 05:30 UTC",
+    "change": "readback_llm node: the model answers the question, then reads back the exact line."
+   }
+  ]
  }
 ]

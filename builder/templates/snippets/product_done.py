@@ -31,7 +31,7 @@ try:
             vars['stage'] = 'readback'
             nxt = 'readback'
         else:
-            _set_close(NEG.get('exhausted_outcome'), NEG.get('exhausted_reason'), 'Say that you will leave it there for today.')
+            _set_close(NEG.get('exhausted_outcome'), NEG.get('exhausted_reason'), '', 'I will leave it there for today.')
     vars['pd_next'] = nxt
 except Exception as e:
     vars['pd_next'] = 'wrap_up'

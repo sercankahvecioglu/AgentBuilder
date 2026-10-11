@@ -16,7 +16,7 @@ try:
     if reply == 'accepts':
         if it.get('action_kind') == 'transfer' and _s(it.get('action_queue')):
             vars['transfer_queue'] = _s(it.get('action_queue'))
-            _set_close(it.get('close_outcome'), it.get('close_reason'), 'Say that you will connect them with the ' + _s(it.get('action_queue')) + ' team now.')
+            _set_close(it.get('close_outcome'), it.get('close_reason'), '', 'I will connect you with the ' + _s(it.get('action_queue')) + ' team now.')
             nxt = 'wrap_up'
         elif _s(it.get('close_outcome')):
             _set_close(it.get('close_outcome'), it.get('close_reason'), '')
@@ -27,7 +27,7 @@ try:
             nxt = 'resume_router'
     elif reply == 'declines':
         if _s(it.get('declined_close_outcome')):
-            _set_close(it.get('declined_close_outcome'), it.get('declined_close_reason'), 'Say you understand.')
+            _set_close(it.get('declined_close_outcome'), it.get('declined_close_reason'), '', 'I understand.')
             nxt = 'wrap_up'
         else:
             vars['resume_hint'] = 'Continue with your last question.'

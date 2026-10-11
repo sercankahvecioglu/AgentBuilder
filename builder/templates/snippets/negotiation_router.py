@@ -19,6 +19,8 @@ try:
     vars['applies_to'] = 'none'
     phint = _s(vars.get('product_hint')).lower()
     vars['product_hint'] = ''
+    frag = _s(vars.get('fragment')).lower() == 'yes'
+    vars['fragment'] = 'no'
     kind, dsaid = _resolve_date(today)
     amt_said = _f(vars.get('amount_said'), 0.0)
     dom_said = _i(vars.get('d_dom'))
@@ -26,7 +28,9 @@ try:
         amt_said = 0.0
     if amt_said > 0 and amt_said < 32 and _s(vars.get('d_ref')).lower() in ('day_of_month', 'weekday'):
         amt_said = 0.0
-    _reset_date_parts()
+    keep_parts = pay in ('yes_today', 'accepts_offer', 'proposes', 'too_much') and bool(table) and idx < len(table) and _i(table[idx].get('none_count')) > 0
+    if not keep_parts:
+        _reset_date_parts()
     nxt = 'negotiate'
     hint = ''
 
@@ -249,6 +253,11 @@ try:
             nxt = _apply_intent(pay, 'negotiate') or 'negotiate'
             if nxt == 'negotiate':
                 hint = _s(vars.get('last_say'))
+    elif pay in ('yes_today', 'accepts_offer', 'proposes', 'too_much') and p.get('none_count'):
+        p['none_count'] = 0
+        vars['nego_cmd'] = pay
+        vars['fragment'] = 'no'
+        nxt = 'negotiation_router'
     elif pay == 'yes_today':
         if MULTI and (scope == 'all' or (scope != 'current' and len(_open_idx()) > 1 and _i(vars.get('asked_all')) == 0)):
             res = _agree_all(today)
@@ -345,7 +354,17 @@ try:
                     nxt, hint = _next_attempt(p)
                 else:
                     hint = 'Sorry, I did not catch that. Could you say that again?'
-    elif pay in ('refuses', 'no_answer'):
+    elif pay == 'no_answer' or (pay == 'refuses' and frag):
+        # a non-answer: ask once for the answer before it counts as a persuasion attempt (cut-off or off-topic turns)
+        nc = _i(p.get('none_count')) + 1
+        p['none_count'] = nc
+        if nc >= 2 and NEG.get('no_answer_is_refusal', True):
+            if MULTI and _i(vars.get('asked_all')) == 0:
+                vars['asked_all'] = '1'
+            nxt, hint = _next_attempt(p)
+        else:
+            hint = 'Sorry, I did not catch your answer. Does that work for you?'
+    elif pay == 'refuses':
         if MULTI and _i(vars.get('asked_all')) == 0:
             vars['asked_all'] = '1'
         nxt, hint = _next_attempt(p)
@@ -377,6 +396,10 @@ try:
     vars['nego_instruction'] = ''
     asked = _s(vars.get('asks')).lower()
     vars['asks'] = 'none'
+    if asked and asked != 'none' and nxt == 'readback':
+        ait = _intent(asked)
+        vars['rb_hint'] = 'The customer also asked a question. ' + (_s(ait.get('say_text')) if ait is not None and _s(ait.get('say_text')) else 'Answer it briefly from the facts you have; if you do not have the information, say so.')
+        nxt = 'readback_llm'
     if asked and asked != 'none' and nxt == 'negotiate' and not instr:
         ait = _intent(asked)
         if ait is not None and _s(ait.get('say_text')):

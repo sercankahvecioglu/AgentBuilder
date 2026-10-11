@@ -8,8 +8,8 @@ from score import score_ledger
 
 OWN = {c["own_id"]: c for c in json.load(open(ROOT / "dev/cases/own_a.json"))}
 FLOWS = {
-    "OWN-A40-dispute": lambda c: verified(c) + [{"node": "state_debt", "set": {"pay": "dispute"}}, {"node": "goodbye"}],
-    "OWN-A42-human": lambda c: verified(c) + [{"node": "state_debt", "set": {"pay": "wants_human"}}, {"node": "offer", "set": {"offer_reply": "accepts"}}, {"node": "goodbye"}],
+    "OWN-A40-dispute": lambda c: verified(c) + [{"node": "state_debt", "set": {"pay": "dispute"}}, {"node": "goodbye*"}],
+    "OWN-A42-human": lambda c: verified(c) + [{"node": "state_debt", "set": {"pay": "wants_human"}}, {"node": "offer", "set": {"offer_reply": "accepts"}}, {"node": "goodbye*"}],
     "OWN-A13-swapped": lambda c: [{"node": "opening", "set": {"who": "confirms"}},
                                   {"node": "identity_q0", "tool": {"name": "verify_identity", "args": {"answer": "1986-17-05"}}},
                                   {"node": "identity_q0", "tool": {"name": "verify_identity", "args": {"answer": "1986-05-17"}}},
@@ -18,8 +18,8 @@ FLOWS = {
     "OWN-A27-below-floor": lambda c: verified(c) + [{"node": "state_debt", "set": {"pay": "proposes", "amount_said": 50.0, "d_ref": "weekday", "d_weekday": "friday", "d_week": "this"}},
                                                     {"node": "negotiate", "set": {"pay": "proposes", "d_ref": "weekday", "d_weekday": "friday", "d_week": "this"}},
                                                     {"node": "readback", "set": {"rb": "confirms"}}, {"node": "say_recorded"}],
-    "OWN-A32-support": lambda c: verified(c) + [{"node": "state_debt", "set": {"pay": "hardship"}}, {"node": "offer", "set": {"offer_reply": "accepts"}}, {"node": "goodbye"}],
-    "OWN-A45-not-talk": lambda c: verified(c) + [{"node": "state_debt", "set": {"pay": "not_talk"}}, {"node": "negotiate_llm", "set": {"pay": "not_talk"}}, {"node": "goodbye"}],
+    "OWN-A32-support": lambda c: verified(c) + [{"node": "state_debt", "set": {"pay": "hardship"}}, {"node": "offer", "set": {"offer_reply": "accepts"}}, {"node": "goodbye*"}],
+    "OWN-A45-not-talk": lambda c: verified(c) + [{"node": "state_debt", "set": {"pay": "not_talk"}}, {"node": "negotiate_llm", "set": {"pay": "not_talk"}}, {"node": "goodbye*"}],
 }
 
 if __name__ == "__main__":

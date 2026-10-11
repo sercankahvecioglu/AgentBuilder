@@ -249,7 +249,7 @@ class Sim:
                 break
             t = turns[ti]
             ti += 1
-            if t.get("node") and t["node"] != cur:
+            if t.get("node") and not (cur == t["node"] or (t["node"].endswith("*") and cur.startswith(t["node"][:-1]))):
                 self.errors.append(f"turn {ti}: expected node {t['node']}, was in {cur}")
             self.log.append(f"CONV {cur} <- turn {ti}: {json.dumps({k: v for k, v in t.items() if k != 'node'})[:160]}")
             for k, v in (t.get("set") or {}).items():

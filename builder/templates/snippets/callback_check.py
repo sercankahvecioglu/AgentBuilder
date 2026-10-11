@@ -5,15 +5,18 @@ try:
     intent = _s(vars.get('tp_intent')).lower()
     vars['tp_intent'] = 'none'
     nxt = 'third_party'
+    ok = False
     if intent == 'wrong_number':
-        _set_close(tp.get('wrong_number_outcome'), tp.get('wrong_number_reason'), 'Apologise for the disturbance.')
+        _set_close(tp.get('wrong_number_outcome'), tp.get('wrong_number_reason'), '', 'I apologise for the disturbance.')
         nxt = 'wrap_up'
     elif intent == 'deceased':
         sent = _s(tp.get('deceased_sentence'))
         low = sent.lower().strip()
         instr = low.startswith(('say ', 'tell ', 'express ', 'state ', 'offer '))
-        pre = (sent if instr else ("Say exactly: '" + sent + "'" if sent else 'Express condolences in one sentence.')) + ' Ask nothing else.'
-        _set_close(tp.get('deceased_outcome'), tp.get('deceased_reason'), pre)
+        if sent and not instr:
+            _set_close(tp.get('deceased_outcome'), tp.get('deceased_reason'), '', sent)
+        else:
+            _set_close(tp.get('deceased_outcome'), tp.get('deceased_reason'), (sent if instr else 'Express condolences in one sentence.') + ' Ask nothing else.')
         nxt = 'wrap_up'
     elif _intent(intent) is not None:
         nxt = _apply_intent(intent, 'third_party') or 'third_party'
@@ -56,7 +59,16 @@ try:
             reason = 'No day or no time was given.'
         _reset_date_parts()
         vars['cb_time'] = ''
-        if ok:
+        if not ok and kind != 'date' and not hhmm:
+            n = _i(vars.get('cb_noinfo')) + 1
+            vars['cb_noinfo'] = str(n)
+            if n <= 2:
+                vars['tp_hint'] = 'The person has not yet said when the customer can be reached. Ask again for a day and a time.'
+                vars['tp_next'] = 'third_party'
+                ok = None
+        if ok is None:
+            pass
+        elif ok:
             vars['cb_date'] = d.isoformat()
             vars['cb_time'] = hhmm
             vars['cb_text'] = _fmt(d) + ' at ' + hhmm
@@ -70,9 +82,10 @@ try:
                 vars['tp_hint'] = reason + ' Say that a callback is possible ' + days_txt + ' between ' + _s(tp.get('from_time')) + ' and ' + _s(tp.get('to_time')) + ', later than now, and ask once for another day and time.'
                 nxt = 'third_party'
             else:
-                _set_close(tp.get('no_callback_outcome'), tp.get('no_callback_reason'), 'Say that no callback could be arranged.')
+                _set_close(tp.get('no_callback_outcome'), tp.get('no_callback_reason'), '', 'No callback could be arranged.')
                 nxt = 'wrap_up'
-    vars['tp_next'] = nxt
+    if ok is not None or intent in ('wrong_number', 'deceased') or _intent(intent) is not None:
+        vars['tp_next'] = nxt
 except Exception as e:
     vars['tp_next'] = 'third_party'
     vars['tp_hint'] = 'Ask when the customer can be reached.'

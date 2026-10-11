@@ -197,10 +197,10 @@ def _row_key(outcome, reason):
     return _s(outcome) + ('__' + _s(reason) if _s(reason) else '')
 
 
-def _set_close(outcome, reason, prefix=''):
+def _set_close(outcome, reason, prefix='', say=''):
     vars['close_key'] = _row_key(outcome, reason)
-    if prefix:
-        vars['goodbye_prefix'] = prefix
+    vars['goodbye_prefix'] = prefix
+    vars['goodbye_say'] = say
 
 
 def _intent(key):

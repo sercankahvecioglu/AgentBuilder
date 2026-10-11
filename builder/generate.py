@@ -277,6 +277,7 @@ except Exception:
         wrong = int(float(vars.get('id_wrong_total') or 0))
         ok = str(d.get('ok')).lower() == 'true'
         verified = str(d.get('verified')).lower() == 'true'
+        vars['id_declines'] = '0'
         hint = str(d.get('hint') or '')
         if not ok:
             if H['unreadable_counts']:
@@ -361,7 +362,8 @@ except Exception:
         ask_keys = [it.key for it in self.spec.special_intents if it.continue_call]
         asks = ev("asks", ask_keys + ["other_question", "none"],
                   "A question the customer asks the agent in the latest message in addition to anything about paying: " + self.intent_desc(ask_keys) + " other_question: any other question to the agent; none: no question.")
-        return [pay, asks] + self.date_parts("the payment") + [self.amount_part()] + self.scope_parts()
+        frag = ev("fragment", ["yes", "no"], "yes if the customer's latest message is cut off or unfinished (it stops mid-sentence or mid-word, or only starts a thought without reaching the point); no otherwise.")
+        return [pay, asks, frag] + self.date_parts("the payment") + [self.amount_part()] + self.scope_parts()
 
     def scope_parts(self) -> List[dict]:
         if not self.multi:
@@ -482,9 +484,9 @@ except Exception:
             flag = f"vq{i}_status"
             id_keys = self.intent_values(before_identity=True)
             trans = [eq("id_locked", flag, "locked"), eq(nxt, flag, "verified"),
-                     anyof("id_router", "id_reply", ["declines", "asks_purpose"] + id_keys, "the customer did not answer the question")]
-            ex = [ev("id_reply", ["declines", "asks_purpose"] + id_keys + ["none"],
-                     "Based only on the customer's latest message: declines: they refuse to answer the security question; asks_purpose: they ask what the call is about instead of answering; "
+                     anyof("id_router", "id_reply", ["declines", "asks_purpose", "asks_why"] + id_keys, "the customer did not answer the question")]
+            ex = [ev("id_reply", ["declines", "asks_purpose", "asks_why"] + id_keys + ["none"],
+                     "Based only on the customer's latest message: declines: they refuse to answer the security question; asks_purpose: they ask what the call or the account is about instead of answering; asks_why: they ask why the agent needs this answer or what it is for, without refusing; "
                      + self.intent_desc(id_keys) + " none: they answered the question, asked how to answer, or said something else.")]
             n = conv_node(f"identity_q{i}", task, trans, extraction=ex, tools=[tool])
             nodes[f"identity_q{i}"] = n
@@ -543,6 +545,9 @@ except Exception:
                                       on_enter=rb_tts, first_only=True,
                                       extraction=[ev("rb", rb_vals, "Based only on the customer's latest message: confirms: an explicit yes, correct, that's right or I confirm, and nothing else is changed; changes: they name another day or amount, or give a fragment of a date (set the other fields); refuses: they no longer want to promise; "
                                                      + self.intent_desc(rb_keys) + " asks_question: a question; none: unclear.")] + self.date_parts("the payment") + [self.amount_part()] + self.scope_parts())
+        nodes["readback_llm"] = conv_node("readback_llm", "{{rb_hint}}\nThen, in the same turn, read the promise back exactly like this and ask the question word for word: \"To confirm: {{readback_text}}. " + tv(conf.confirm_question) + "\"\nNo tool call is allowed in this step.",
+                                          [always("readback_router")], extraction=nodes["readback"]["extraction_schema"])
+        nodes["negotiation_router"]["transitions"].insert(0, eq("readback_llm", "nego_next", "readback_llm"))
         nodes["readback_router"] = code_node("readback_router", self.snippet("readback_router"), "readback",
                                              [eq("promise_guard", "rb_next", "promise_guard"), eq("negotiation_router", "rb_next", "negotiation_router")])
 
@@ -587,7 +592,7 @@ except Exception:
         nodes["resume_router"] = code_node("resume_router", self.snippet("resume_router"), "negotiate_llm", [eq(n, "resume_next", n) for n in resumable if n != "negotiate_llm"])
 
         # 10 closing
-        nodes["wrap_up"] = code_node("wrap_up", self.snippet("wrap_up"), "goodbye", [eq("pre_close", "wrap_next", "pre_close"), eq("do_note", "wrap_next", "do_note")])
+        nodes["wrap_up"] = code_node("wrap_up", self.snippet("wrap_up"), "goodbye", [eq("pre_close", "wrap_next", "pre_close"), eq("do_note", "wrap_next", "do_note"), eq("goodbye_tts", "wrap_next", "goodbye_tts")])
         an = self._op_with_fields(["reason"]) or "add_note"
         nf = self.api.op(an).fields
         baked = {self.cid: "{{" + self.cid + "}}"}
@@ -605,6 +610,8 @@ except Exception:
         goodbye_task = ("This is the last thing you say in this call. {{goodbye_prefix}}\nThen, in the same turn, thank the customer for their time and say goodbye in one short sentence. "
                         "Ask no question of any kind, propose nothing, mention no amount, date or payment, and do not call any tool.")
         nodes["goodbye"] = conv_node("goodbye", goodbye_task, [always("pre_close")])
+        nodes["goodbye_tts"] = conv_node("goodbye_tts", "You have said goodbye. If the customer says anything, say goodbye again in a few words. No tool call is allowed.",
+                                         [always("pre_close")], on_enter={"type": "tts", "text": "{{goodbye_say}} Thank you for your time and goodbye."}, first_only=True)
         nodes["pre_close"] = code_node("pre_close", self.snippet("pre_close"), "close_router", [eq("do_transfer", "pc_next", "do_transfer")])
         tr = self._op_with_fields(["queue"]) or "transfer_to_agent"
         qf = next((f for f, sch in self.api.op(tr).fields.items() if sch.get("enum") and f != self.cid), "queue")

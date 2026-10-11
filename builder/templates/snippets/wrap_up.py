@@ -65,6 +65,8 @@ try:
         vars['wrap_next'] = 'do_note'
     elif _s(vars.get('goodbye_done')) == 'yes':
         vars['wrap_next'] = 'pre_close'
+    elif _s(vars.get('goodbye_say')) and not _s(vars.get('goodbye_prefix')):
+        vars['wrap_next'] = 'goodbye_tts'
     else:
         vars['wrap_next'] = 'goodbye'
 except Exception as e:
