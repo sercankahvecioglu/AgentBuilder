@@ -1,0 +1,244 @@
+[
+ {
+  "id": "PUB-11",
+  "own_id": "OWN-B8-no-promise",
+  "brief": "B",
+  "family": "Multi-product",
+  "level": "hard",
+  "title": "Refuses every product",
+  "variables": {
+   "first_name": "Sofia",
+   "last_name": "Almeida",
+   "title": "Ms",
+   "now": "2026-10-14T11:00"
+  },
+  "identity": {
+   "date_of_birth": "1987-06-03",
+   "phone_last4": "2288"
+  },
+  "products": [
+   {
+    "type": "credit_card",
+    "card_last4": "2288",
+    "past_due": 220.0,
+    "days_late": 9,
+    "minimum_payment": 66.0
+   },
+   {
+    "type": "personal_loan",
+    "past_due": 640.0,
+    "days_late": 9,
+    "instalment_amount": 213.0
+   },
+   {
+    "type": "car_loan",
+    "past_due": 75.0,
+    "days_late": 3,
+    "instalment_amount": 25.0
+   }
+  ],
+  "script": "Verified. Cannot pay anything today. Flatly refuses every amount and every date the agent proposes, for every product, without giving a reason or naming any date or amount.",
+  "expected": {
+   "outcome": "no_promise",
+   "reason": "refused",
+   "promises": [],
+   "notes": [
+    {
+     "product_id": "p1",
+     "reason": "refused"
+    },
+    {
+     "product_id": "p2",
+     "reason": "refused"
+    },
+    {
+     "product_id": "p3",
+     "reason": "refused"
+    }
+   ],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "all three products stated before any ask",
+   "no promise recorded",
+   "a 'refused' note for each product",
+   "the agent does not repeat an offer the customer already refused"
+  ]
+ },
+ {
+  "id": "PUB-13",
+  "own_id": "OWN-B9-dispute-one",
+  "brief": "B",
+  "family": "Multi-product",
+  "level": "hard",
+  "title": "Disputes the loan, pays the card today",
+  "variables": {
+   "first_name": "Elena",
+   "last_name": "Rossi",
+   "title": "Ms",
+   "now": "2026-10-14T11:00"
+  },
+  "identity": {
+   "date_of_birth": "1991-01-08",
+   "phone_last4": "6604"
+  },
+  "products": [
+   {
+    "type": "credit_card",
+    "card_last4": "6604",
+    "past_due": 300.0,
+    "days_late": 4,
+    "minimum_payment": 90.0
+   },
+   {
+    "type": "personal_loan",
+    "past_due": 900.0,
+    "days_late": 20,
+    "instalment_amount": 300.0
+   }
+  ],
+  "script": "Verified. Says she never had a personal loan with Freya Bank and that debt is not hers. Says she can pay the credit card in full today. Confirms at the read-back.",
+  "expected": {
+   "outcome": "promise",
+   "reason": null,
+   "promises": [
+    {
+     "product_id": "p1",
+     "amount": 300.0,
+     "date": "2026-10-14"
+    }
+   ],
+   "notes": [
+    {
+     "product_id": "p2",
+     "reason": "dispute"
+    }
+   ],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "the agent does not argue about the loan",
+   "a 'dispute' note for the loan and no promise for it",
+   "the card promise for 300.00 today is recorded",
+   "the call continues after the dispute"
+  ]
+ },
+ {
+  "id": "PUB-12",
+  "own_id": "OWN-B10-restructure-after-promise",
+  "brief": "B",
+  "family": "Multi-product",
+  "level": "hard",
+  "title": "Agrees the card, then asks for a payment plan before anything is recorded",
+  "variables": {
+   "first_name": "Marcus",
+   "last_name": "Bell",
+   "title": "Mr",
+   "now": "2026-10-14T11:00"
+  },
+  "identity": {
+   "date_of_birth": "1983-10-19",
+   "phone_last4": "4410"
+  },
+  "products": [
+   {
+    "type": "credit_card",
+    "card_last4": "9015",
+    "past_due": 510.0,
+    "days_late": 16,
+    "minimum_payment": 153.0
+   },
+   {
+    "type": "personal_loan",
+    "past_due": 1320.0,
+    "days_late": 16,
+    "instalment_amount": 440.0
+   },
+   {
+    "type": "car_loan",
+    "past_due": 140.0,
+    "days_late": 7,
+    "instalment_amount": 46.0
+   }
+  ],
+  "script": "Gives the date of birth and the last four digits 4410 correctly. Will pay the credit card in full today. When asked about the personal loan, says he cannot pay the loans and wants lower instalments for them.",
+  "expected": {
+   "outcome": "transferred",
+   "reason": "restructuring",
+   "promises": [],
+   "notes": [],
+   "callbacks": [],
+   "transfers": [
+    {
+     "queue": "restructuring"
+    }
+   ]
+  },
+  "checks": [
+   "transfer_to_agent called with queue restructuring",
+   "no create_promise call: the card was agreed but not yet recorded when the transfer was requested",
+   "no add_note call at all",
+   "the agent does not describe a plan of its own"
+  ]
+ },
+ {
+  "id": "PUB-13",
+  "own_id": "OWN-B10b-plan-after-recorded",
+  "brief": "B",
+  "family": "Multi-product",
+  "level": "hard",
+  "title": "Promise recorded, then asks for a payment plan",
+  "variables": {
+   "first_name": "Elena",
+   "last_name": "Rossi",
+   "title": "Ms",
+   "now": "2026-10-14T11:00"
+  },
+  "identity": {
+   "date_of_birth": "1991-01-08",
+   "phone_last4": "6604"
+  },
+  "products": [
+   {
+    "type": "credit_card",
+    "card_last4": "6604",
+    "past_due": 300.0,
+    "days_late": 4,
+    "minimum_payment": 90.0
+   },
+   {
+    "type": "personal_loan",
+    "past_due": 900.0,
+    "days_late": 20,
+    "instalment_amount": 300.0
+   }
+  ],
+  "script": "Verified. Can pay the credit card in full today. Flatly refuses to pay the personal loan whatever is offered. Confirms the card at the read-back. After the agent says the promise is recorded, says she wants lower instalments for the loan.",
+  "expected": {
+   "outcome": "transferred",
+   "reason": "restructuring",
+   "promises": [
+    {
+     "product_id": "p1",
+     "amount": 300.0,
+     "date": "2026-10-14"
+    }
+   ],
+   "notes": [],
+   "callbacks": [],
+   "transfers": [
+    {
+     "queue": "restructuring"
+    }
+   ]
+  },
+  "checks": [
+   "the card promise stays recorded",
+   "transfer_to_agent called with queue restructuring after the recorded promise",
+   "no add_note call at all",
+   "the call closes as transferred"
+  ]
+ }
+]
