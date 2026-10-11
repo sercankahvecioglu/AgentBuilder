@@ -18,3 +18,4 @@ out/
 dev/spikes/*_run*.json
 submission/mock.*
 submission/cli-test*
+dev/spikes/*_chat.json
