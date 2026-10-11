@@ -112,6 +112,7 @@ def _save(name, obj):
 
 
 def _reset_date_parts():
+    vars['d_week_said'] = _s(vars.get('d_week')).lower() if _s(vars.get('d_week')).lower() in ('this', 'next', 'week_after_next') else ''
     vars['d_ref'] = 'none'
     vars['d_weekday'] = 'none'
     vars['d_week'] = 'none'
@@ -142,6 +143,11 @@ def _resolve_date(today):
             return ('vague', None)
         idx = WEEKDAYS.index(wd)
         ws = _week_start(today)
+        if wk in ('', 'none') and _s(vars.get('week_ctx')) in ('this', 'next', 'week_after_next'):
+            wk = _s(vars.get('week_ctx'))
+        vars['week_ctx'] = ''
+        if wk == 'week_after_next':
+            return ('date', ws + datetime.timedelta(days=14 + idx))
         if wk == 'next':
             if CAL.get('next_weekday') == 'next_occurrence':
                 t = today + datetime.timedelta(days=1)

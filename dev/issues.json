@@ -51,7 +51,54 @@
    {
     "at": "2026-10-11 01:50 UTC",
     "change": "Runners killed, rep 1 recovered from the iteration runs and scored (9/10). Looking for a stop/delete endpoint."
+   },
+   {
+    "at": "2026-10-11 02:25 UTC",
+    "change": "The watchdog's forced completion at 3 min cut the judge off: 7 runs of rep 2 came back 'inconclusive' (no verdict). Threshold now 20 min and only when every run has a verdict. Reps-3 result 2/10 is therefore not a measurement."
    }
   ]
+ },
+ {
+  "id": "ISS-006",
+  "title": "Floor offer spoken with a day ('today'); the persona refuses the day and the brief-correct re-offer on Friday reads as 'offered twice'",
+  "status": "tentatively-fixed",
+  "evidence": "reps-3 rep 2 PUB-06 call aa4842fe; in_words PUB-06.",
+  "fix_history": [
+   {
+    "at": "2026-10-11 02:25 UTC",
+    "change": "The floor is offered without a day ('Could you pay the minimum of X instead? The rest stays overdue.'); an accepted amount with no day means today."
+   }
+  ]
+ },
+ {
+  "id": "ISS-007",
+  "title": "First hardship message had no `pay` extracted; router fallback 'repeat your question' = a persuasion attempt; goodbye node asked a payment question",
+  "status": "tentatively-fixed",
+  "evidence": "reps-3 rep 3 PUB-05 call 58a67c72.",
+  "fix_history": [
+   {
+    "at": "2026-10-11 02:25 UTC",
+    "change": "pay min_confidence 0.4; empty-extraction fallback asks the customer to say it again instead of re-proposing; goodbye prompt forbids any question, proposal, amount or date."
+   }
+  ]
+ },
+ {
+  "id": "ISS-008",
+  "title": "pieces style: date given in parts never combined, model claimed the check failed without the tool (PUB-03); 'week after next' + bare 'Monday' resolved to the wrong week and a non-yes was taken as confirmation (PUB-07)",
+  "status": "tentatively-fixed",
+  "evidence": "a-pieces-1.json calls 2cc74e63 and a90a67a3.",
+  "fix_history": [
+   {
+    "at": "2026-10-11 02:25 UTC",
+    "change": "Identity prompt: combine parts, only the tool decides; d_week gains week_after_next and bare weekdays resolve inside the last vague period; read-back is a fixed tts line ending with the exact confirm question and 'confirms' needs an explicit yes."
+   }
+  ]
+ },
+ {
+  "id": "ISS-009",
+  "title": "Judge dispute: 'agent does not say recorded before a successful call' failed on the brief-mandated opening sentence 'This call is recorded'",
+  "status": "open",
+  "evidence": "in_words PUB-10 call c4a387c6. Brief A rule 1 requires saying the call is recorded; the check text is the organisers' case check.",
+  "fix_history": []
  }
 ]

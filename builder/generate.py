@@ -314,7 +314,7 @@ except Exception:
             ev("d_ref", ["today", "tomorrow", "day_after_tomorrow", "weekday", "day_of_month", "vague", "none"],
                f"Based only on the customer's latest message, which kind of day they name for {what}: today; tomorrow; day_after_tomorrow; weekday (a named weekday such as Friday, this Friday, next Monday); day_of_month (a calendar date such as the 26th, the 6th of November); vague (a period without an exact day: next week, the week after next, end of the month, when my salary comes, in a few days); none if no day is mentioned."),
             ev("d_weekday", WEEKDAY_NAMES + ["none"], "The weekday the customer names in the latest message, if any; none otherwise."),
-            ev("d_week", ["this", "next", "none"], "this if the customer says 'this <weekday>', next if the customer says 'next <weekday>', none otherwise."),
+            ev("d_week", ["this", "next", "week_after_next", "none"], "this if the customer says 'this <weekday>' or 'this week'; next if 'next <weekday>' or 'next week'; week_after_next if 'the week after next'; none otherwise."),
             {"name": "d_dom", "type": "integer", "description": "The day of the month the customer names in the latest message (the 26th -> 26, 6 November -> 6, 'Monday the 26th' -> 26); 0 if none.", "min_confidence": MIN_CONF},
             ev("d_month", MONTH_NAMES + ["none"], "The month the customer names in the latest message, if any; none otherwise."),
             {"name": "d_year", "type": "integer", "description": "The year the customer names in the latest message; 0 if none.", "min_confidence": MIN_CONF},
@@ -340,7 +340,9 @@ except Exception:
                 "refuses: a plain no or 'I cannot pay' with no day and no amount. no_answer: they avoid the question or change the subject. "
                 "vague: a period without an exact day, such as next week, the week after next, end of the month, when the salary comes. "
                 + self.intent_desc(keys) + " asks_question: a question to the agent that none of the above covers. none: nothing about paying.")
-        return [ev("pay", values, desc)] + self.date_parts("the payment") + [self.amount_part()] + self.scope_parts()
+        pay = ev("pay", values, desc)
+        pay["min_confidence"] = 0.4
+        return [pay] + self.date_parts("the payment") + [self.amount_part()] + self.scope_parts()
 
     def scope_parts(self) -> List[dict]:
         if not self.multi:
@@ -446,8 +448,10 @@ except Exception:
             nxt = f"identity_q{i + 1}" if i + 1 < len(idn.questions) else "load_account"
             task = (f"Security question {i + 1} of {len(idn.questions)}. {q.ask_text} Ask one question at a time.\n{{{{id_hint}}}}\n"
                     f"When the customer answers, convert the answer to this format: {q.answer_format}" + (f" (a date given only as numbers is read as {q.numeric_date_order.replace('_', ', ')})" if q.numeric_date_order else "") +
-                    f", then CALL {vq} with it. Do not state any account details. If asked why you need this, say the questions protect the account.\n{id_rules}\n"
-                    "After the tool result, do exactly what its what_to_do_next says.")
+                    f", then CALL {vq} with it. Do not state any account details. If asked why you need this, say the questions protect the account.\n"
+                    "If the customer gives the answer in parts over several turns, combine the parts into one answer and call the tool as soon as the answer is complete; do not ask for parts you already have. "
+                    "Only the tool decides whether an answer is right: never say an answer is wrong, never say the check has failed and never send the customer elsewhere unless what_to_do_next says so.\n"
+                    f"{id_rules}\nAfter the tool result, do exactly what its what_to_do_next says.")
             tool = api_tool(self.api, vq, {self.cid: "{{" + self.cid + "}}", field_name: q.api_field},
                             description=f"Check the customer's answer to security question {i + 1} ({q.api_field}). CALL it every time the customer gives an answer to this question, with the answer converted to: {q.answer_format}.",
                             post=self.hook_post_verify(i), model_descriptions={answer_name: f"The customer's answer converted to: {q.answer_format}."})
@@ -501,10 +505,12 @@ except Exception:
         conf = s.confirmation
         rb_task = ("Read the agreed promise back exactly from this list, naming the product, the amount and the day: {{readback_text}}. "
                    f"Then ask exactly: \"{tv(conf.confirm_question)}\"\n{{{{rb_hint}}}}\n{self.stage_rules('confirmation')}\nNo tool call is allowed in this step.")
+        rb_tts = {"type": "tts", "text": "To confirm: {{readback_text}}. " + tv(conf.confirm_question)}
         rb_keys = self.intent_values(before_identity=False)
         rb_vals = ["confirms", "changes", "refuses"] + rb_keys + ["asks_question", "none"]
         nodes["readback"] = conv_node("readback", rb_task, [always("readback_router")],
-                                      extraction=[ev("rb", rb_vals, "Based only on the customer's latest message: confirms: a clear yes to the read-back; changes: they want another day or amount (name it in the other fields); refuses: they no longer want to promise; "
+                                      on_enter=rb_tts, first_only=True,
+                                      extraction=[ev("rb", rb_vals, "Based only on the customer's latest message: confirms: an explicit yes, correct, that's right or I confirm, and nothing else is changed; changes: they name another day or amount, or give a fragment of a date (set the other fields); refuses: they no longer want to promise; "
                                                      + self.intent_desc(rb_keys) + " asks_question: a question; none: unclear.")] + self.date_parts("the payment") + [self.amount_part()] + self.scope_parts())
         nodes["readback_router"] = code_node("readback_router", self.snippet("readback_router"), "readback",
                                              [eq("promise_guard", "rb_next", "promise_guard"), eq("negotiation_router", "rb_next", "negotiation_router")])
@@ -559,8 +565,8 @@ except Exception:
             else:
                 omit.append(f)
         nodes["do_note"] = api_node("do_note", api_tool(self.api, an, baked, omit=omit, post=self.hook_post_status("note_status", [], "Noted.")), "wrap_up", [])
-        goodbye_task = ("{{goodbye_prefix}}\nThen, in the same turn, thank the customer for their time and say goodbye in one short sentence. "
-                        "Do not ask anything else and do not call any tool.")
+        goodbye_task = ("This is the last thing you say in this call. {{goodbye_prefix}}\nThen, in the same turn, thank the customer for their time and say goodbye in one short sentence. "
+                        "Ask no question of any kind, propose nothing, mention no amount, date or payment, and do not call any tool.")
         nodes["goodbye"] = conv_node("goodbye", goodbye_task, [always("pre_close")])
         nodes["pre_close"] = code_node("pre_close", self.snippet("pre_close"), "close_router", [eq("do_transfer", "pc_next", "do_transfer")])
         tr = self._op_with_fields(["queue"]) or "transfer_to_agent"

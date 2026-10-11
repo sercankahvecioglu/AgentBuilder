@@ -140,11 +140,14 @@ try:
         return ('product_done', '')
 
     def _offer_floor(q, why):
+        # the floor is offered once, without naming a day: an accepted amount with no day means today
         q['floor_offered'] = 1
         q['pending_amount'] = _f(q.get('floor'))
         d = _next_bd(today)
-        extra = ' Say that the rest stays overdue.' if AMT.get('too_much_say_rest_overdue') else ''
-        return ('negotiate', _propose(q, _f(q.get('floor')), d, why) + extra)
+        q['prop_amount'] = _f(q.get('floor'))
+        q['prop_date'] = d.isoformat()
+        extra = ' The rest stays overdue.' if AMT.get('too_much_say_rest_overdue') else ''
+        return ('negotiate', (why + ' ' if why else '') + "Say exactly this and wait for the answer: 'Could you pay the minimum of " + _amt(q.get('floor')) + " instead?" + extra + "'")
 
     def _with_date(q, d, amount):
         dl = _deadline(q)
@@ -299,6 +302,7 @@ try:
                 if nxt == 'agreed':
                     nxt, hint = _after_agree()
         elif kind == 'vague' or pay == 'vague':
+            vars['week_ctx'] = _s(vars.get('d_week_said'))
             if NEG.get('vague_ask_once', True) and not p.get('vague_asked'):
                 p['vague_asked'] = 1
                 hint = 'The customer gave a period without an exact day. Ask once for the exact day.'
@@ -326,7 +330,7 @@ try:
         if nc >= 3 and NEG.get('no_answer_is_refusal', True):
             nxt, hint = _next_attempt(p)
         else:
-            hint = 'Repeat your last question or proposal in one short sentence.'
+            hint = 'Say that you did not catch that and ask the customer to say it again. Do not propose anything new.'
     _save('products_json', table)
     cur = table[_i(vars.get('cur_idx'))] if table and _i(vars.get('cur_idx')) < len(table) else p
     if cur is not None:
