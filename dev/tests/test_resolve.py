@@ -141,3 +141,15 @@ def test_restatement_and_addition_are_not_rivals():
     add = fact("F4", "2026-11-02", topic="holidays", operator="", value_kind="set_member", doc_label="memo.md", doc_date="2026-09-20")
     r = resolve(Ex([lst, add], [Conflict(topic="holidays", fact_ids=["F3", "F4"], note="memo adds a holiday")]))
     assert sorted(r.governing_ids) == ["F3", "F4"] and not r.overrides
+
+
+def test_wording_survives_a_rule_that_changes_scope():
+    a = fact("F1", "Can you settle this today?", topic="first_ask", operator="", doc_label="brief-a.md", text="first ask wording")
+    b = fact("F2", "", topic="first_ask", operator="", doc_label="brief-b.md", text="first ask whether the customer can pay all products today")
+    docs = [doc("brief-a.md", "policy"), doc("brief-b.md", "amendment", amends="brief-a.md")]
+    r = resolve(Ex([a, b], [Conflict(topic="first_ask", fact_ids=["F1", "F2"], note="")], docs))
+    assert sorted(r.governing_ids) == ["F1", "F2"] and not r.overrides
+    c = fact("F3", "paid", topic="already_paid", operator="", doc_label="brief-a.md", text="close as paid")
+    d = fact("F4", "note", topic="already_paid", operator="", doc_label="brief-b.md", text="note it and continue")
+    r = resolve(Ex([c, d], [Conflict(topic="already_paid", fact_ids=["F3", "F4"], note="")], docs))
+    assert r.governing_ids == ["F4"]  # codes are rivals: the amendment wins

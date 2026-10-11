@@ -67,6 +67,9 @@ Rules
 11. `conflicts`: every place where two documents (or two passages) give different values or contradictory rules for the
     same topic, including an amendment that changes a number without saying so explicitly. Give the fact ids and a short note.
     Do not resolve. A discussion thread that decides nothing is not a conflict; just mark those facts `discussion`.
+    Two facts conflict only when they cannot both hold. A rule that changes how often, for how many items or in which
+    order something is done does not conflict with the exact words to say for it: keep the wording as its own fact
+    (value = the sentence) and do not list it in that conflict.
 
 12. `documents`: one entry per <document>, in reading order: its label (exactly the doc_label you use), its date if
     given, its kind (policy = base rules; amendment = a memo, update or later brief that changes another document;
@@ -127,7 +130,16 @@ of governing facts. Code will generate the agent from your output without readin
      several per-product results combine into one close; leave `all_noted_as` empty and `else_rule` "" when the documents
      describe no combination.
    - `multi_product.enabled` false when the documents describe one product per customer; then fill the other
-     multi_product leaves with false/1/[]/"" and cite the fact that says one product.
+     multi_product leaves with false/1/[]/"" and cite the fact that says one product. `multi_product.order` =
+     as_returned (the order the account tool returns) | by_days_late | by_amount. When several products are possible,
+     intents that end one product without a promise (dispute, paid, hardship, refusal) get `action_kind` note with
+     the note reason the documents assign to that case in `action_note_reason`, `continue_other_products` true and
+     `continue_call` true; per-product notes for every unpromised product at the end are `multi_product.note_*`.
+   - Verbatim sentences and questions from the governing facts (the first question, the confirmation question, the
+     recorded-promise sentence, the sympathy or condolence sentence) go into their closed fields word for word, even
+     when another fact changes how often or for how many items they are asked.
+   - `recording.failure_say`, `identity.fail_message`, `say_text` and similar text leaves: an imperative instruction with
+     the documents' wording; "" only when the documents give nothing for that case.
    - `identity.swapped`: only when the identity tool's response in the tool API has a hint for swapped date parts;
      otherwise hint_value "", instruction "", counts_as_wrong false.
    - `applies_to` = all, unless the documents describe several products per customer and say an intent concerns one of them.

@@ -221,6 +221,16 @@ class Eval:
             return self.add(path, "exact", intent_key({"key": g}) == intent_key({"key": c}), g, c)
         if path.startswith("special_intents") and field == "precedence":
             return  # ordinal: scored once for the whole list in precedence_order()
+        if path.startswith("special_intents") and field == "applies_to":
+            eq = {"current_product": "one_product", "named_product": "one_product"}
+            return self.add(path, "exact", eq.get(norm(g), norm(g)) == eq.get(norm(c), norm(c)), g, c)
+        if path.startswith("special_intents") and field == "continue_other_products":
+            gi = self._gold_item(path)
+            if gi and gi.get("continue_call"):
+                return  # answer-and-continue intents: the per-product flag is meaningless
+        if field == "order" and path.startswith("multi_product"):
+            eq = {"as_returned": "returned", "get_account_order": "returned", "returned_order": "returned", "api_order": "returned", "tool_order": "returned"}
+            return self.add(path, "exact", eq.get(norm(c), norm(c)) == eq.get(norm(g), norm(g)), g, c)
         if field in TEXT_FIELDS and isinstance(g, str):
             if g == "":
                 ok = norm(c) == ""
@@ -250,6 +260,12 @@ class Eval:
         else:
             ok = fuzzy_eq(gs, cs)
         self.add(path, "exact", ok, g, c)
+
+    def _gold_item(self, path):
+        m = re.match(r"special_intents\[([^\]]*)\]", path)
+        if not m:
+            return None
+        return next((o for o in self.gold.get("special_intents", []) if intent_key(o) == m.group(1)), None)
 
     def behaviour_rules(self, g, c):
         cl = [r for r in (c or []) if isinstance(r, dict)]

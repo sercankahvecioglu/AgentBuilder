@@ -274,12 +274,24 @@ def _norm_val(v: str) -> str:
     return re.sub(r"\s+", " ", v.strip().lower()).strip(" .;,")
 
 
+def _is_phrase(f: Fact) -> bool:
+    """A verbatim sentence or question the agent must say: several words that end like a sentence or are quoted in the source."""
+    v = f.value.strip()
+    if len(v.split()) < 3:
+        return False
+    return v[-1] in "?!." or f'"{v}"' in f.source_quote or f"\u201c{v}\u201d" in f.source_quote
+
+
 def _compatible(a: Fact, b: Fact) -> bool:
-    """Two facts listed as a conflict that can both be true: the same value (a restatement), or a set member
-    (one holiday, one code) next to a list or another member (an addition)."""
+    """Two facts listed as a conflict that can both be true: the same value (a restatement), a set member
+    (one holiday, one code) next to a list or another member (an addition), or wording next to a non-wording
+    rule (a later rule that changes how often or for how many items something is asked does not replace the
+    sentence to say)."""
     if _norm_val(a.value) and _norm_val(a.value) == _norm_val(b.value):
         return True
     if "set_member" in (a.value_kind, b.value_kind):
+        return True
+    if _is_phrase(a) != _is_phrase(b):
         return True
     return False
 
