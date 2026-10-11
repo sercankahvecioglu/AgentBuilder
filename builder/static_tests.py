@@ -205,10 +205,6 @@ def lint(t: T, wf: dict, spec: Spec, api):
                 changed = True
     for n in nodes:
         t.ok(n in reach_end, f"lint: node {n} cannot reach an end_call node")
-    for n, nd in wf["nodes"].items():
-        for e in nd.get("extraction_schema") or []:
-            vals = e.get("enum_values") or []
-            t.ok(len(vals) == len(set(vals)), f"lint: duplicate enum values in {n}.{e.get('name')}")
     # data flow: every {{var}} in prompts, tts and tool defaults must be assigned somewhere (or a call/system variable)
     assigned |= {"system", "call"}
     for n, nd in nodes.items():

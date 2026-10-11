@@ -223,18 +223,6 @@ def _intent(key):
     return None
 
 
-def _is_prohibition(text):
-    # an instruction that only forbids something ("Do not describe a plan.") needs no spoken words of its own
-    t = _s(text).strip().lower()
-    if not t:
-        return True
-    parts = [p.strip() for p in re.split(r'[.;]', t) if p.strip()]
-    for p in parts:
-        if not p.startswith(('do not ', "don't ", 'never ', 'make no ', 'without ')):
-            return False
-    return True
-
-
 def _before_identity():
     return _s(vars.get('stage')) in ('opening', 'identity', 'third_party')
 
@@ -272,12 +260,8 @@ def _apply_intent(key, resume_node):
         return 'wrap_up'
     if it.get('action_kind') == 'transfer' and _s(it.get('action_queue')):
         vars['transfer_queue'] = _s(it.get('action_queue'))
-        connect = 'I will connect you with the ' + _s(it.get('action_queue')) + ' team now.'
-        if not say or _is_prohibition(say):
-            # nothing to say beyond the hand-over: a fixed line (no model call before the goodbye)
-            _set_close(it.get('close_outcome'), it.get('close_reason'), '', connect)
-        else:
-            _set_close(it.get('close_outcome'), it.get('close_reason'), (say + ' Then say: ' + connect).strip())
+        pre = say + ' Say that you will connect them with the ' + _s(it.get('action_queue')) + ' team now.'
+        _set_close(it.get('close_outcome'), it.get('close_reason'), pre.strip())
         return 'wrap_up'
     if _s(it.get('close_outcome')):
         _set_close(it.get('close_outcome'), it.get('close_reason'), say)

@@ -261,7 +261,7 @@
   "questions": [
    {
     "api_field": "date_of_birth",
-    "ask_text": "Could you please tell me your date of birth?",
+    "ask_text": "Ask for the date of birth.",
     "answer_format": "YYYY-MM-DD",
     "numeric_date_order": "day_month_year",
     "fact_ids": [
@@ -270,7 +270,7 @@
    },
    {
     "api_field": "phone_last4",
-    "ask_text": "What are the last four digits of the phone number on file?",
+    "ask_text": "Ask for the last four digits of the phone number on file.",
     "answer_format": "four digits",
     "numeric_date_order": "",
     "fact_ids": [

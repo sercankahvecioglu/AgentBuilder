@@ -8,8 +8,6 @@ try:
     nxt = cur
     if reply == 'chatter':
         vars['id_hint'] = 'Say in a few words that you are listening, then ask the same question again.'
-        if CONST.get('id_again'):
-            nxt = cur + '_again'
     elif reply == 'asks_why':
         vars['id_hint'] = _s(idc.get('explain_once_text')) + ' Then ask the same question again.'
     elif reply in ('declines', 'asks_purpose'):

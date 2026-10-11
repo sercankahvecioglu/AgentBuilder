@@ -32,12 +32,6 @@ try:
     _reset_date_parts()
     nxt = 'negotiate'
     hint = ''
-    if amt_said > 0 and table and idx < len(table) and abs(amt_said - round(amt_said)) < 0.005:
-        # a whole number said for an amount that has cents (the floor, the full amount, the proposal): the cents were dropped
-        for cand in (_f(table[idx].get('floor')), _f(table[idx].get('past_due')), _f(table[idx].get('prop_amount'))):
-            if cand > 0 and abs(cand - round(cand)) >= 0.005 and abs(cand - amt_said) < 1.0:
-                amt_said = cand
-                break
 
     def _open_idx():
         out = []
@@ -82,9 +76,6 @@ try:
     def _propose(q, amount, d, why=''):
         if _s(vars.get('prop_all')) == '1' and why.find('for all products') < 0:
             vars['prop_all'] = ''
-        # a new question gets a fresh cut-off budget
-        q['frag_nv'] = 0
-        q['frag_count'] = 0
         q['prop_amount'] = float(amount)
         q['prop_date'] = d.isoformat()
         lab = (' for the ' + _s(q.get('label'))) if MULTI else ''
@@ -220,23 +211,8 @@ try:
 
     if p is not None and pay in ('yes_today', 'accepts_offer', 'proposes', 'too_much', 'vague'):
         p['none_count'] = 0
-    # a cut-off turn that carries a number or a day ("I can pay the full 45", "the 11th, sorry, I mean"): the value is
-    # probably incomplete, so ask once or twice to hear it whole instead of acting on it (never counts as an attempt)
-    cut_value = frag and (amt_said > 0 or kind in ('date', 'vague')) and pay in ('yes_today', 'accepts_offer', 'proposes', 'too_much', 'vague')
-    if p is not None and cut_value and _i(p.get('frag_count')) < 2:
-        p['frag_count'] = _i(p.get('frag_count')) + 1
-        pay = '__cut__'
-    elif p is not None and frag and pay in ('no_answer', 'none', '') and amt_said <= 0 and kind == 'none' and _i(p.get('frag_nv')) < 5:
-        # a cut-off turn with nothing in it: let the customer finish, without using the non-answer budget
-        p['frag_nv'] = _i(p.get('frag_nv')) + 1
-        pay = '__cut__'
-    if p is not None and pay == 'yes_today' and _s(p.get('prop_date')) and _s(p.get('prop_date')) != today.isoformat() and kind != 'date':
-        # a plain yes while a proposal for another day is pending accepts that proposal
-        pay = 'accepts_offer'
     if p is None:
         nxt, hint = 'wrap_up', ''
-    elif pay == '__cut__':
-        hint = 'Sorry, I did not catch all of that. Could you say it again?'
     elif pay == 'start_product':
         nxt, hint = _start_product(p)
     elif pay == 'asks_question' or _intent(pay) is not None:
@@ -248,12 +224,6 @@ try:
                 vars['resume_hint'] = 'Answer the question briefly from the facts you have, then repeat your last question.'
             vars['resume_node'] = 'negotiate'
             nxt = 'resume_router'
-        elif MULTI and it is not None and it.get('continue_other_products') and _s(it.get('action_note_reason')) and it.get('ask_once_first') and _s(vars.get('offered_' + pay)) != '1':
-            # the one-time offer (a transfer, help) comes first; a decline returns here through offer_router
-            vars['offered_' + pay] = '1'
-            nxt = _apply_intent(pay, 'negotiate') or 'negotiate'
-            if nxt == 'negotiate':
-                hint = _s(vars.get('last_say'))
         elif MULTI and it is not None and it.get('continue_other_products') and _s(it.get('action_note_reason')):
             # note this product and carry on with the others
             j = _named_idx() if phint else idx
@@ -266,7 +236,7 @@ try:
                 q['status'] = 'noted'
                 q['note_reason'] = _s(it.get('action_note_reason'))
             vars['cnt_' + pay] = str(_i(vars.get('cnt_' + pay)) + 1)
-            say = _s(it.get('say_text')) if _s(vars.get('offered_' + pay)) != '1' else ''
+            say = _s(it.get('say_text'))
             vars['nego_instruction'] = say
             opens = _open_idx()
             if opens:
@@ -365,7 +335,6 @@ try:
             vars['week_ctx'] = _s(vars.get('d_week_said'))
             if NEG.get('vague_ask_once', True) and not p.get('vague_asked'):
                 p['vague_asked'] = 1
-                p['frag_nv'] = 0
                 hint = 'Which exact day would that be?'
             else:
                 dl = _deadline(p)

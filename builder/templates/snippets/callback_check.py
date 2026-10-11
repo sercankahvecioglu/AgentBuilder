@@ -29,19 +29,6 @@ try:
         hhmm = ''
         if m:
             hhmm = ('%02d:%s' % (int(m.group(1)), m.group(2)))
-        frag = _s(vars.get('fragment')).lower() == 'yes'
-        vars['fragment'] = 'no'
-        if frag and _i(vars.get('cb_noinfo')) < 4:
-            # a cut-off turn: whatever day or time it carries is probably incomplete; hear it whole first
-            kind, d, hhmm = 'none', None, ''
-        pend = _d(vars.get('cb_pending_day'))
-        if kind != 'date' and hhmm and pend is not None and pend >= today:
-            # the day came in an earlier turn, the time in this one
-            d = pend
-            kind = 'date'
-        if kind == 'date' and not hhmm and d is not None and d >= today:
-            vars['cb_pending_day'] = d.isoformat()
-            vars['cb_pending_text'] = _fmt(d)
         allowed = []
         for k in (tp.get('allowed_days') or []):
             if k == 'today':
@@ -73,18 +60,11 @@ try:
             reason = 'No day or no time was given.'
         _reset_date_parts()
         vars['cb_time'] = ''
-        if not ok and (kind != 'date' or not hhmm):
-            # incomplete information (no day, no time, or a cut-off turn) is not an offer outside the window:
-            # ask for the missing part, up to twice, before the window rule applies
+        if not ok and kind != 'date' and not hhmm:
             n = _i(vars.get('cb_noinfo')) + 1
             vars['cb_noinfo'] = str(n)
-            if n <= 4:
-                if kind == 'date' and d is not None:
-                    vars['tp_hint'] = 'The person named ' + _fmt(d) + ' but no time. Ask at what time on that day the customer can be reached.'
-                elif hhmm:
-                    vars['tp_hint'] = 'The person named a time but no day. Ask on which day the customer can be reached at that time.'
-                else:
-                    vars['tp_hint'] = 'The person has not yet said when the customer can be reached. Ask again for a day and a time.'
+            if n <= 2:
+                vars['tp_hint'] = 'The person has not yet said when the customer can be reached. Ask again for a day and a time.'
                 vars['tp_next'] = 'third_party'
                 ok = None
         if ok is None:
