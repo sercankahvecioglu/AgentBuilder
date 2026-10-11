@@ -21,6 +21,11 @@ try:
     vars['product_hint'] = ''
     kind, dsaid = _resolve_date(today)
     amt_said = _f(vars.get('amount_said'), 0.0)
+    dom_said = _i(vars.get('d_dom'))
+    if amt_said > 0 and dom_said > 0 and abs(amt_said - dom_said) < 0.5:
+        amt_said = 0.0
+    if amt_said > 0 and amt_said < 32 and _s(vars.get('d_ref')).lower() in ('day_of_month', 'weekday'):
+        amt_said = 0.0
     _reset_date_parts()
     nxt = 'negotiate'
     hint = ''
@@ -71,7 +76,7 @@ try:
         q['prop_amount'] = float(amount)
         q['prop_date'] = d.isoformat()
         lab = (' for the ' + _s(q.get('label'))) if MULTI else ''
-        return (why + ' ' if why else '') + "Propose exactly this and wait for the answer: 'Could you pay " + _amt(amount) + lab + ' on ' + _fmt(d) + "?'"
+        return (why + ' ' if why else '') + 'Could you pay ' + _amt(amount) + lab + ' on ' + _fmt(d) + '?'
 
     def _agree(q, amount, d, note=''):
         q['status'] = 'agreed'
@@ -132,7 +137,7 @@ try:
             q['attempts_used'] = n
             extra = ''
             if _s(att.get('amount')) == 'floor' and AMT.get('too_much_say_rest_overdue'):
-                extra = ' Say that the rest stays overdue.'
+                extra = ' The rest stays overdue.'
             return ('negotiate', _propose(q, amount, d, why) + extra)
         q['attempts_used'] = n
         q['status'] = 'noted'
@@ -147,7 +152,7 @@ try:
         q['prop_amount'] = _f(q.get('floor'))
         q['prop_date'] = d.isoformat()
         extra = ' The rest stays overdue.' if AMT.get('too_much_say_rest_overdue') else ''
-        return ('negotiate', (why + ' ' if why else '') + "Say exactly this and wait for the answer: 'Could you pay the minimum of " + _amt(q.get('floor')) + " instead?" + extra + "'")
+        return ('negotiate', (why + ' ' if why else '') + 'Could you pay the minimum of ' + _amt(q.get('floor')) + ' instead?' + extra)
 
     def _with_date(q, d, amount):
         dl = _deadline(q)
@@ -155,14 +160,14 @@ try:
             return ('negotiate', _propose(q, amount, _next_bd(today), 'That day has already passed.'))
         if not _is_bd(d):
             if d <= dl:
-                return ('negotiate', _propose(q, amount, _next_bd(d), 'Say that ' + _fmt(d) + ' is not a business day and offer the next business day.'))
+                return ('negotiate', _propose(q, amount, _next_bd(d), _fmt(d) + ' is not a business day.'))
             q['deadline_offered'] = 1
-            return ('negotiate', _propose(q, amount, dl, 'Say that the latest date you can record is ' + _fmt(dl) + '.'))
+            return ('negotiate', _propose(q, amount, dl, 'The latest date I can record is ' + _fmt(dl) + '.'))
         if d > dl:
             if q.get('deadline_offered') and NEG.get('refusing_deadline_is_flat_refusal', True):
-                return _next_attempt(q, 'The customer insisted on a date after the deadline.')
+                return _next_attempt(q, 'I understand.')
             q['deadline_offered'] = 1
-            return ('negotiate', _propose(q, amount, dl, 'Say that the latest date you can record is ' + _fmt(dl) + '.'))
+            return ('negotiate', _propose(q, amount, dl, 'The latest date I can record is ' + _fmt(dl) + '.'))
         _agree(q, amount, d)
         return ('agreed', '')
 
@@ -170,7 +175,7 @@ try:
         # one date for every open product; a product whose deadline is earlier gets its own deadline (and says so)
         if not _is_bd(d):
             vars['prop_all'] = '1'
-            return ('negotiate', _propose(p, _f(p.get('past_due')), _next_bd(d), 'Say that ' + _fmt(d) + ' is not a business day and offer the next business day for all products.'))
+            return ('negotiate', _propose(p, _f(p.get('past_due')), _next_bd(d), _fmt(d) + ' is not a business day, so for all products:'))
         vars['prop_all'] = ''
         for k in _open_idx():
             q = table[k]
@@ -194,7 +199,7 @@ try:
         opens = _open_idx()
         if MULTI and opens:
             vars['cur_idx'] = str(opens[0])
-            return _start_product(table[opens[0]], 'Say that you have noted that and will read everything back at the end; do not say it is recorded.')
+            return _start_product(table[opens[0]], 'Noted, I will read everything back at the end.')
         return ('readback', '')
 
     def _start_product(q, lead=''):
@@ -227,11 +232,11 @@ try:
                 q['note_reason'] = _s(it.get('action_note_reason'))
             vars['cnt_' + pay] = str(_i(vars.get('cnt_' + pay)) + 1)
             say = _s(it.get('say_text'))
+            vars['nego_instruction'] = say
             opens = _open_idx()
             if opens:
                 vars['cur_idx'] = str(opens[0])
                 nxt, hint = _start_product(table[opens[0]])
-                hint = (say + ' ' if say else '') + hint
             else:
                 agreed = [r for r in table if r.get('status') == 'agreed']
                 if agreed:
@@ -243,7 +248,7 @@ try:
         else:
             nxt = _apply_intent(pay, 'negotiate') or 'negotiate'
             if nxt == 'negotiate':
-                hint = 'Repeat your last question or proposal.'
+                hint = _s(vars.get('last_say'))
     elif pay == 'yes_today':
         if MULTI and (scope == 'all' or (scope != 'current' and len(_open_idx()) > 1 and _i(vars.get('asked_all')) == 0)):
             res = _agree_all(today)
@@ -269,7 +274,7 @@ try:
     elif pay == 'too_much':
         p['too_much'] = 1
         if AMT.get('too_much_offer_floor_once', True) and not p.get('floor_offered') and _f(p.get('floor')) < _f(p.get('past_due')):
-            nxt, hint = _offer_floor(p, 'Say you understand.')
+            nxt, hint = _offer_floor(p, 'I understand.')
         else:
             nxt, hint = _next_attempt(p)
     elif pay in ('proposes', 'vague'):
@@ -280,9 +285,9 @@ try:
             full = _f(p.get('past_due'))
             if amt_said < fl - 0.005:
                 if AMT.get('below_floor_offer_floor_once', True) and not p.get('floor_offered'):
-                    nxt, hint = _offer_floor(p, 'Say that an amount below the minimum of ' + _amt(fl) + ' cannot be recorded.')
+                    nxt, hint = _offer_floor(p, 'An amount below the minimum of ' + _amt(fl) + ' cannot be recorded.')
                 else:
-                    nxt, hint = _next_attempt(p, 'The customer insisted on an amount below the minimum.')
+                    nxt, hint = _next_attempt(p, 'I understand.')
                 handled = True
             else:
                 amount = min(amt_said, full)
@@ -305,21 +310,21 @@ try:
             vars['week_ctx'] = _s(vars.get('d_week_said'))
             if NEG.get('vague_ask_once', True) and not p.get('vague_asked'):
                 p['vague_asked'] = 1
-                hint = 'The customer gave a period without an exact day. Ask once for the exact day.'
+                hint = 'Which exact day would that be?'
             else:
                 dl = _deadline(p)
                 p['deadline_offered'] = 1
-                hint = _propose(p, amount, dl, 'Say that the latest date you can record is ' + _fmt(dl) + '.')
+                hint = _propose(p, amount, dl, 'The latest date I can record is ' + _fmt(dl) + '.')
         else:
             if amt_said > 0:
-                hint = _propose(p, amount, _next_bd(today), 'Accept the amount.')
+                hint = _propose(p, amount, _next_bd(today), '')
             else:
                 nc = _i(p.get('none_count')) + 1
                 p['none_count'] = nc
                 if nc >= 2 and NEG.get('no_answer_is_refusal', True):
                     nxt, hint = _next_attempt(p)
                 else:
-                    hint = 'Repeat your last question or proposal.'
+                    hint = 'Sorry, I did not catch that. Could you say that again?'
     elif pay in ('refuses', 'no_answer'):
         if MULTI and _i(vars.get('asked_all')) == 0:
             vars['asked_all'] = '1'
@@ -330,7 +335,7 @@ try:
         if nc >= 3 and NEG.get('no_answer_is_refusal', True):
             nxt, hint = _next_attempt(p)
         else:
-            hint = 'Say that you did not catch that and ask the customer to say it again. Do not propose anything new.'
+            hint = 'Sorry, I did not catch that. Could you say that again?'
     _save('products_json', table)
     cur = table[_i(vars.get('cur_idx'))] if table and _i(vars.get('cur_idx')) < len(table) else p
     if cur is not None:
@@ -348,9 +353,23 @@ try:
         vars['rb'] = 'none'
         vars['rb_asks'] = '0'
         vars['stage'] = 'readback'
-    vars['nego_hint'] = hint
+    instr = _s(vars.get('nego_instruction'))
+    vars['nego_instruction'] = ''
+    if nxt == 'negotiate':
+        if instr:
+            vars['nego_hint'] = instr + (" Then say exactly: '" + hint + "'" if hint else '')
+            vars['nego_say'] = ''
+            nxt = 'negotiate_llm'
+        else:
+            vars['nego_say'] = hint
+            vars['nego_hint'] = ''
+            vars['last_say'] = hint
+    else:
+        vars['nego_hint'] = hint
+        vars['nego_say'] = ''
     vars['nego_next'] = nxt
 except Exception as e:
-    vars['nego_next'] = 'negotiate'
+    vars['nego_next'] = 'negotiate_llm'
+    vars['nego_say'] = ''
     vars['nego_hint'] = 'Repeat your last question in one short sentence.'
     vars['snippet_error'] = 'negotiation_router: ' + str(e)

@@ -516,9 +516,11 @@ except Exception:
                      "Say only what the instruction asks, in one or two sentences, then wait for the answer. Never ask how much the customer can pay; you propose every amount. "
                      f"Never offer {', '.join(tv(neg.forbidden_offers))}. Do not add offers, dates or amounts of your own: the instruction already applies the policy below.\n"
                      f"Background policy:\n{nego_rules}\nNo tool call is allowed in this step.")
-        nodes["negotiate"] = conv_node("negotiate", nego_task, [always("negotiation_router")], extraction=self.pay_schema())
-        nodes["negotiation_router"] = code_node("negotiation_router", self.snippet("negotiation_router"), "negotiate",
-                                                [eq("readback", "nego_next", "readback"), eq("offer", "nego_next", "offer"), eq("wrap_up", "nego_next", "wrap_up"),
+        nodes["negotiate"] = conv_node("negotiate", "You have just made the proposal shown above. Wait for the customer's answer. No tool call is allowed in this step.",
+                                       [always("negotiation_router")], extraction=self.pay_schema(), on_enter={"type": "tts", "text": "{{nego_say}}"})
+        nodes["negotiate_llm"] = conv_node("negotiate_llm", nego_task, [always("negotiation_router")], extraction=self.pay_schema())
+        nodes["negotiation_router"] = code_node("negotiation_router", self.snippet("negotiation_router"), "negotiate_llm",
+                                                [eq("negotiate", "nego_next", "negotiate"), eq("readback", "nego_next", "readback"), eq("offer", "nego_next", "offer"), eq("wrap_up", "nego_next", "wrap_up"),
                                                  eq("resume_router", "nego_next", "resume_router"), eq("product_done", "nego_next", "product_done")])
         nodes["product_done"] = code_node("product_done", self.snippet("product_done"), "wrap_up", [eq("negotiation_router", "pd_next", "negotiation_router"), eq("readback", "pd_next", "readback")])
 
@@ -573,8 +575,8 @@ except Exception:
         nodes["offer_router"] = code_node("offer_router", self.snippet("offer_router"), "offer", [eq("wrap_up", "offer_next", "wrap_up"), eq("resume_router", "offer_next", "resume_router")])
 
         # 9 resume
-        resumable = ["opening", "third_party", "negotiate", "readback", "offer"] + [f"identity_q{i}" for i in range(len(idn.questions))]
-        nodes["resume_router"] = code_node("resume_router", self.snippet("resume_router"), "negotiate", [eq(n, "resume_next", n) for n in resumable if n != "negotiate"])
+        resumable = ["opening", "third_party", "negotiate_llm", "readback", "offer"] + [f"identity_q{i}" for i in range(len(idn.questions))]
+        nodes["resume_router"] = code_node("resume_router", self.snippet("resume_router"), "negotiate_llm", [eq(n, "resume_next", n) for n in resumable if n != "negotiate_llm"])
 
         # 10 closing
         nodes["wrap_up"] = code_node("wrap_up", self.snippet("wrap_up"), "goodbye", [eq("pre_close", "wrap_next", "pre_close"), eq("do_note", "wrap_next", "do_note")])

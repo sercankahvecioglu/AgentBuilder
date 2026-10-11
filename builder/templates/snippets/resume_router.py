@@ -13,8 +13,9 @@ try:
     elif node == 'offer':
         vars['offer_hint'] = hint
     else:
-        vars['nego_hint'] = hint
-        node = 'negotiate'
+        vars['nego_hint'] = hint + (" Then say exactly: '" + _s(vars.get('last_say')) + "'" if _s(vars.get('last_say')) and 'wait for the answer' not in hint else '')
+        vars['nego_say'] = ''
+        node = 'negotiate_llm'
     vars['resume_hint'] = ''
     vars['resume_next'] = node
 except Exception as e:

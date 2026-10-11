@@ -13,7 +13,7 @@ try:
         vars['cur_idx'] = str(opens[0])
         vars['cur_label'] = _s(table[opens[0]].get('label'))
         vars['nego_cmd'] = 'start_product'
-        vars['nego_hint'] = 'Say you understand, then move on to the next product.'
+        vars['nego_instruction'] = ''
         nxt = 'negotiation_router'
     else:
         agreed = [r for r in table if r.get('status') == 'agreed']

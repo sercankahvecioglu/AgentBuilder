@@ -12,7 +12,7 @@ try:
         if n >= 2:
             reply = 'declines'
         else:
-            vars['offer_hint'] = 'The answer was unclear. Repeat the offer in one short sentence and wait for a yes or no.'
+            vars['offer_hint'] = 'The answer was unclear. Ask only whether that was a yes or a no. Do not repeat or rephrase the offer and add nothing else.'
     if reply == 'accepts':
         if it.get('action_kind') == 'transfer' and _s(it.get('action_queue')):
             vars['transfer_queue'] = _s(it.get('action_queue'))
