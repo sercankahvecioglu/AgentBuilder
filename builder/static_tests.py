@@ -226,6 +226,7 @@ def lint(t: T, wf: dict, spec: Spec, api):
 # ----------------------------------------------------------------------------- invariants
 
 def invariants(t: T, wf: dict, spec: Spec, api):
+    _API[0] = api
     cal = Cal(spec)
     prods = synthetic_products(spec, api)
     ident = identity_for(spec)
