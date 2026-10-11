@@ -12,7 +12,7 @@ import sys
 
 sys.path.insert(0, os.getcwd())
 from builder.resolve import resolve  # noqa: E402
-from builder.schema import Extraction, Fact, dump_model  # noqa: E402
+from builder.schema import Document, Extraction, Fact, dump_model  # noqa: E402
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(os.path.dirname(HERE))
@@ -87,11 +87,13 @@ def facts_from(parsed: dict[str, tuple[str, str]], doc_label: str) -> list[Fact]
 def main() -> None:
     a = parse_brief_a(open(os.path.join(ROOT, "briefs", "brief-a.md"), encoding="utf-8").read())
     b = parse_brief_b(open(os.path.join(ROOT, "briefs", "brief-b.md"), encoding="utf-8").read())
+    DOCS = {"brief-a.md": Document(label="brief-a.md", date="", kind="policy", amends="", note="Brief A"),
+            "brief-b.md": Document(label="brief-b.md", date="", kind="amendment", amends="brief-a.md", note="Brief B builds on A")}
     for name, parsed_sets in (("brief-a", [(a, "brief-a.md")]), ("brief-ab", [(a, "brief-a.md"), (b, "brief-b.md")])):
         facts = []
         for parsed, label in parsed_sets:
             facts += facts_from(parsed, label)
-        ex = Extraction(facts=facts, conflicts=[])
+        ex = Extraction(documents=[DOCS[label] for _, label in parsed_sets], facts=facts, conflicts=[])
         res = resolve(ex)
         with open(os.path.join(HERE, f"{name}.facts.json"), "w", encoding="utf-8") as f:
             f.write(dump_model(ex) + "\n")

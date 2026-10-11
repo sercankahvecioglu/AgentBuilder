@@ -179,8 +179,42 @@ def auto_conflicts(facts: list[Fact]) -> list[Conflict]:
     return out
 
 
+class _Docs:
+    """Document metadata from the extraction: kind, order and declared amendment links."""
+
+    def __init__(self, ex: Extraction):
+        self.by_label = {d.label.strip().lower(): d for d in ex.documents}
+        self.order = {d.label.strip().lower(): n for n, d in enumerate(ex.documents)}
+
+    def _key(self, f: Fact) -> str:
+        return f.doc_label.strip().lower()
+
+    def amends(self, a: Fact, b: Fact) -> bool:
+        """True if a's document declares (directly or through a chain) that it amends b's document."""
+        cur, target, seen = self._key(a), self._key(b), set()
+        while cur and cur not in seen:
+            seen.add(cur)
+            d = self.by_label.get(cur)
+            if not d or not d.amends:
+                return False
+            cur = d.amends.strip().lower()
+            if cur == target:
+                return True
+        return False
+
+    def kind(self, f: Fact) -> str:
+        d = self.by_label.get(self._key(f))
+        if d and d.kind in ("amendment", "policy"):
+            return d.kind
+        return _doc_kind(f)
+
+    def position(self, f: Fact) -> int:
+        return self.order.get(self._key(f), -1)
+
+
 def resolve(ex: Extraction) -> Resolution:
     by_id = {f.id: f for f in ex.facts}
+    docs = _Docs(ex)
     dropped = [f.id for f in ex.facts if f.kind == "discussion"]
     losers: set[str] = set()
     overrides: list[Override] = []
@@ -219,7 +253,7 @@ def resolve(ex: Extraction) -> Resolution:
         reps.sort(key=lambda f: f.id)
         winner = reps[0]
         for other in reps[1:]:
-            winner, note = _beat(winner, other, c.topic, overrides, datecond, unresolved, losers)
+            winner, note = _beat(winner, other, c.topic, overrides, datecond, unresolved, losers, docs)
             if note:
                 notes.append(note)
         # a losing representative takes its document's parameter facts in this conflict down with it; set members stay
@@ -233,7 +267,17 @@ def resolve(ex: Extraction) -> Resolution:
                       date_conditional=datecond, unresolved=unresolved, notes=notes)
 
 
-def _beat(a: Fact, b: Fact, topic: str, overrides, datecond, unresolved, losers) -> tuple[Fact, str]:
+def _beat(a: Fact, b: Fact, topic: str, overrides, datecond, unresolved, losers, docs: "_Docs | None" = None) -> tuple[Fact, str]:
+    if docs is not None:  # rule 0: a document that declares it amends the other wins, dates or not
+        for w, l in ((a, b), (b, a)):
+            if docs.amends(w, l) and not docs.amends(l, w):
+                ew, el = _parse_date(w.effective_from), _parse_date(l.effective_from)
+                if ew and (el is None or ew > el):
+                    datecond.append(DateConditionalPair(topic=topic, before_id=l.id, from_date=w.effective_from, after_id=w.id))
+                    return w, f"conflict '{topic}': {w.id} (declared amendment) applies from {w.effective_from}; {l.id} before that"
+                losers.add(l.id)
+                overrides.append(Override(topic=topic, winner=w.id, loser=l.id, rule="declared amendment wins"))
+                return w, f"conflict '{topic}': {w.id} overrides {l.id} ({w.doc_label} declares it amends {l.doc_label})"
     da, db = _parse_date(a.doc_date), _parse_date(b.doc_date)
     if da and db and da != db:  # rule 2
         w, l = (a, b) if da > db else (b, a)
@@ -245,13 +289,17 @@ def _beat(a: Fact, b: Fact, topic: str, overrides, datecond, unresolved, losers)
         losers.add(l.id)
         overrides.append(Override(topic=topic, winner=w.id, loser=l.id, rule="later doc_date wins"))
         return w, f"conflict '{topic}': {w.id} (dated {w.doc_date}) overrides {l.id} (dated {l.doc_date})"
-    ka, kb = _doc_kind(a), _doc_kind(b)
+    ka, kb = (docs.kind(a), docs.kind(b)) if docs is not None else (_doc_kind(a), _doc_kind(b))
     if ka != kb and "amendment" in (ka, kb) and "policy" in (ka, kb):  # rule 3
         w, l = (a, b) if ka == "amendment" else (b, a)
         losers.add(l.id)
         overrides.append(Override(topic=topic, winner=w.id, loser=l.id, rule="amendment/memo beats policy extract of equal or unknown date"))
         return w, f"conflict '{topic}': memo {w.id} overrides policy {l.id} (dates equal or unknown)"
     w, how = stricter(a, b)  # rule 4
+    if how.startswith("fact id order") and docs is not None and docs.position(a) != docs.position(b) and -1 not in (docs.position(a), docs.position(b)):
+        # no other criterion: the document that comes later in the input pack is taken as the later material
+        w = a if docs.position(a) > docs.position(b) else b
+        how = "later document in the input order (no other criterion)"
     l = b if w is a else a
     losers.add(l.id)
     unresolved.append(UnresolvedConflict(topic=topic, fact_ids=[a.id, b.id], chosen_id=w.id, how=how,

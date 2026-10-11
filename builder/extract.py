@@ -68,6 +68,13 @@ Rules
     same topic, including an amendment that changes a number without saying so explicitly. Give the fact ids and a short note.
     Do not resolve. A discussion thread that decides nothing is not a conflict; just mark those facts `discussion`.
 
+12. `documents`: one entry per <document>, in reading order: its label (exactly the doc_label you use), its date if
+    given, its kind (policy = base rules; amendment = a memo, update or later brief that changes another document;
+    request = a mail commissioning the agent; code_list; discussion = a thread that decides nothing; other), and
+    `amends` = the label of the document it changes or builds on when the text says so ("builds on", "every rule of X
+    applies unless a rule below replaces it", "update to", "following the review ... the following applies"), else "".
+    The resolver gives a declared amendment precedence over the document it amends.
+
 Ids: F001, F002, ... in reading order. Aim for completeness: a dense specification typically yields 60 to 150 facts."""
 
 
@@ -221,7 +228,7 @@ def extract(brief: str, api_sum: dict[str, Any], trace: Trace | None, effort: st
             gov |= set(r[1].governing_ids)
         res = res.model_copy(update={"governing_ids": sorted(gov)})
     if out_prefix:
-        _write(out_prefix + ".facts.json", dump_model(Extraction(facts=all_facts, conflicts=ex.conflicts)))
+        _write(out_prefix + ".facts.json", dump_model(Extraction(documents=ex.documents, facts=all_facts, conflicts=ex.conflicts)))
         _write(out_prefix + ".resolution.json", dump_model(res))
 
     issues: list = []

@@ -1,4 +1,13 @@
 {
+ "documents": [
+  {
+   "label": "brief-a.md",
+   "date": "",
+   "kind": "policy",
+   "amends": "",
+   "note": "Brief A"
+  }
+ ],
  "facts": [
   {
    "id": "A-R1",

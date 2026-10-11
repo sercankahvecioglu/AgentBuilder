@@ -83,9 +83,24 @@ class Conflict(Strict):
     note: str = Field(description="What they disagree on. Do not resolve it.")
 
 
+DocKind = Literal["policy", "amendment", "request", "code_list", "discussion", "other"]
+
+
+class Document(Strict):
+    label: str = Field(description="The document's name attribute or heading, exactly as used in the facts' doc_label.")
+    date: str = Field(description="ISO date of the document, or '' if none is given.")
+    kind: DocKind = Field(
+        description="policy = the base rules; amendment = a memo, update or later brief that changes another document; "
+        "request = a mail or note commissioning the agent; code_list = allowed codes; discussion = a thread that decides nothing; other."
+    )
+    amends: str = Field(description="Label of the document this one changes or builds on, when the text says so (\"builds on\", \"replaces\", \"update to\", \"applies unless a rule below replaces it\"); '' otherwise.")
+    note: str = Field(description="One line on what the document is.")
+
+
 class Extraction(Strict):
     """Stage 1a output."""
 
+    documents: list[Document] = Field(description="One entry per input document, in reading order.")
     facts: list[Fact]
     conflicts: list[Conflict]
 

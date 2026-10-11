@@ -1,4 +1,20 @@
 {
+ "documents": [
+  {
+   "label": "brief-a.md",
+   "date": "",
+   "kind": "policy",
+   "amends": "",
+   "note": "Brief A"
+  },
+  {
+   "label": "brief-b.md",
+   "date": "",
+   "kind": "amendment",
+   "amends": "brief-a.md",
+   "note": "Brief B builds on A"
+  }
+ ],
  "facts": [
   {
    "id": "A-R1",
