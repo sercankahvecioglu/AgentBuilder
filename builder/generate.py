@@ -70,7 +70,7 @@ def api_node(name: str, tool: dict, default: str, transitions: List[dict]) -> di
     }
 
 
-FIXED_LINE_MODE = "llm"   # "tts" = instant fixed line; "llm" = the model repeats the fixed line word for word (streams like any reply)
+FIXED_LINE_MODE = "tts"   # "tts" = instant fixed line; "llm" = the model repeats the fixed line word for word (streams like any reply)
 
 
 def fixed_line(text: str, force_tts: bool = False) -> dict:
