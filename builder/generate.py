@@ -226,7 +226,7 @@ class Generator:
                 "too_much_offer_floor_once": bool(tv(s.amounts.too_much.offer_floor_once)), "too_much_say_rest_overdue": bool(tv(s.amounts.too_much.say_rest_overdue)),
                 "below_floor_offer_floor_once": bool(tv(s.amounts.below_floor.offer_floor_once)),
             },
-            "intents": [dict(it.model_dump(), say_text=spoken_instruction(it.say_text)) for it in s.special_intents],
+            "intents": [dict(it.model_dump(), say_text=self.braces(spoken_instruction(it.say_text)), ask_once_text=self.braces(it.ask_once_text)) for it in s.special_intents],
             "recording": {"max_attempts": int(tv(s.recording.max_attempts)), "failure_note_reason": tv(s.recording.failure_note_reason),
                           "failure_outcome": s.recording.failure_close.outcome, "failure_reason": s.recording.failure_close.reason, "failure_say": tv(s.recording.failure_say)},
             "closing": {
@@ -246,6 +246,13 @@ class Generator:
             "rb_again": not is_instruction(tv(s.confirmation.confirm_question)),
             "opening_again": not is_instruction(tv(s.opening.confirm_question)),
         }
+
+    def braces(self, text: str) -> str:
+        """`{name}` for a call variable becomes `{{name}}` so the platform substitutes it (a bare `{name}` is echoed)."""
+        t = text or ""
+        for cv in self.spec.call_variables:
+            t = re.sub(r"(?<!\{)\{" + re.escape(cv.name) + r"\}(?!\})", "{{" + cv.name + "}}", t)
+        return t
 
     def _promise_outcome(self) -> str:
         """The outcome row that means 'a promise was recorded': the first row without a reason whose `when` mentions a promise, else the first row."""
@@ -407,8 +414,8 @@ except Exception:
     # ---- prompts
     def system_prompt(self) -> str:
         s = self.spec
-        glob = [b.agent_instruction for b in s.behaviour_rules if b.stage == "global"]
-        cont = [f"If {(it.trigger_description[0].lower() + it.trigger_description[1:]).rstrip('. ')}: {spoken_instruction(it.say_text)}" for it in s.special_intents if it.continue_call and it.say_text]
+        glob = [self.braces(b.agent_instruction) for b in s.behaviour_rules if b.stage == "global"]
+        cont = [self.braces(f"If {(it.trigger_description[0].lower() + it.trigger_description[1:]).rstrip('. ')}: {spoken_instruction(it.say_text)}") for it in s.special_intents if it.continue_call and it.say_text]
         lines = [
             f"You are {tv(s.agent_self_description)}, on an outbound phone call. Speak {lang_name(tv(s.language))}.",
             "Keep every turn to one or two short sentences. Ask one question at a time. Be polite and plain.",
@@ -423,7 +430,7 @@ except Exception:
         return "\n".join("- " + x for x in lines)
 
     def stage_rules(self, stage: str) -> str:
-        rs = [b.agent_instruction for b in self.spec.behaviour_rules if b.stage == stage]
+        rs = [self.braces(b.agent_instruction) for b in self.spec.behaviour_rules if b.stage == stage]
         ph = [f"Say exactly: \"{p.text}\" ({p.when})." for p in self.spec.required_phrases if p.stage == stage and "{" not in p.text]
         return "\n".join("- " + x for x in rs + ph)
 
@@ -576,7 +583,7 @@ except Exception:
 
         # 5 negotiation
         neg = s.negotiation
-        nego_rules = "\n".join("- " + b.agent_instruction for b in s.behaviour_rules if b.stage == "negotiation")
+        nego_rules = "\n".join("- " + self.braces(b.agent_instruction) for b in s.behaviour_rules if b.stage == "negotiation")
         debt_task = (f"The customer is verified. {tv(s.debt_statement.intro_instruction)} State each late product with its figures, one sentence per product, from this list and nothing else:\n{{{{debt_text}}}}\n"
                      f"Then ask exactly: \"{tv(neg.first_question)}\"" + (" (about all products together)" if self.multi else "") + ".\n"
                      "Do not ask how much the customer can pay. No tool call is allowed in this step.")
