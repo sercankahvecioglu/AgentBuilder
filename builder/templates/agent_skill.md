@@ -17,6 +17,7 @@ You build one phone agent (a Freya workflow JSON) from a bank's documents and th
 - The agent may state only what a tool result or the documents give it; never invent amounts, dates, addresses or reasons. After a tool failure it says so honestly; it never claims something was done, sent or changed unless the tool result confirms it.
 - Follow the documents' flow exactly: which service is called when, what is read back, what needs confirmation, when to hand over to a human or return the call, what happens when a service returns no data, an error, or an unexpected HTTP status (the test customers show these cases: design a path for each listed answer).
 - Short turns, one question at a time; a customer who asks something unrelated gets a brief answer and the flow continues.
+- Requests the documents say this step cannot fulfil as asked (another period or item than the one available, another address than the registered one, several records at once, a channel this step does not offer, an action for someone else): first say, in the documents' words, what can be done instead or why not, then continue with what can be done or with the route the documents prescribe. Never silently substitute: the caller must hear the limit before you act. Give every conversation node an extraction enum that covers the edge requests the documents list for that stage, so the route is decided by code, not left to the model.
 
 ## How to build it well (platform rules that matter)
 
