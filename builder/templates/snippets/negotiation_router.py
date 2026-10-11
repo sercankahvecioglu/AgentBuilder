@@ -232,6 +232,12 @@ try:
                 vars['resume_hint'] = 'Answer the question briefly from the facts you have, then repeat your last question.'
             vars['resume_node'] = 'negotiate'
             nxt = 'resume_router'
+        elif MULTI and it is not None and it.get('continue_other_products') and _s(it.get('action_note_reason')) and it.get('ask_once_first') and _s(vars.get('offered_' + pay)) != '1':
+            # the one-time offer (a transfer, help) comes first; a decline returns here through offer_router
+            vars['offered_' + pay] = '1'
+            nxt = _apply_intent(pay, 'negotiate') or 'negotiate'
+            if nxt == 'negotiate':
+                hint = _s(vars.get('last_say'))
         elif MULTI and it is not None and it.get('continue_other_products') and _s(it.get('action_note_reason')):
             # note this product and carry on with the others
             j = _named_idx() if phint else idx
@@ -244,7 +250,7 @@ try:
                 q['status'] = 'noted'
                 q['note_reason'] = _s(it.get('action_note_reason'))
             vars['cnt_' + pay] = str(_i(vars.get('cnt_' + pay)) + 1)
-            say = _s(it.get('say_text'))
+            say = _s(it.get('say_text')) if _s(vars.get('offered_' + pay)) != '1' else ''
             vars['nego_instruction'] = say
             opens = _open_idx()
             if opens:

@@ -30,6 +30,11 @@ try:
         if _s(it.get('declined_close_outcome')):
             _set_close(it.get('declined_close_outcome'), it.get('declined_close_reason'), '', 'I understand.')
             nxt = 'wrap_up'
+        elif bool(CONST.get('multi')) and it.get('continue_other_products') and _s(it.get('action_note_reason')) and resume in ('negotiate', 'negotiate_llm'):
+            # several products: the declined offer leaves this product noted and the call goes on with the others
+            vars['nego_cmd'] = key
+            vars['stage'] = 'negotiation'
+            nxt = 'negotiation_router'
         else:
             vars['resume_hint'] = 'Continue with your last question.'
             vars['resume_node'] = resume
