@@ -11,7 +11,7 @@
     }
   ],
   "repo": "https://github.com/sercankahvecioglu/AgentBuilder",
-  "commit": "TO_BE_FILLED_AFTER_THE_FINAL_BUILD",
+  "commit": "767daf3",
   "run_command": "python3 builder/build.py {case_folder} {mock_url} --mode agent --slot final",
   "workflow": "submission/final.workflow.json",
   "trace": "submission/final.trace.txt",
