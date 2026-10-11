@@ -91,3 +91,89 @@ File ownership between the tracks is in memory.md §3d. Track B wrote `builder/t
 (now Track A's and Track B's respectively). A parallel agent committed gold specs to the same paths minutes before
 Track B's first commit; Track B's version superseded them with the same layout, and Track A's later schema
 additions (`opening.first_sentence`, `debt_statement.intro_sentence`, `SpecialIntent.ask_once_text`) are covered by the gold and the eval.
+
+---
+
+# What is done: Track A (platform, generator, tests, CLI, evaluation)
+
+Written 2026-10-11 05:45 UTC by the Track A agent. Branch `sercan-dev`, 52 commits. Everything below is committed.
+Track A is the half of the builder that turns `spec.json` into the Freya phone agent, tests it, saves it, and runs the
+development evaluation loop against the practice customers.
+
+## 1. Results (latest build: brief-a v5 / brief-ab v6 on the platform; v6/v7 = "paused" build on slot `mock`, measurement pending)
+
+| Run | Result | Where |
+|---|---|---|
+| Brief A, reps 3 (a customer counts only at 3/3) | rep 1: 9/10, rep 2: 10/10, rep 3 running at the time of writing | `results/a-reps3-5.log` |
+| Brief B, reps 3 (previous build) | **3/3** | `results/b-reps3-3.log` (rerun pending), `results/b-reps3-1.log` |
+| Own cases for the six untested Brief A rules (dispute, human insists, day/month swapped, below floor, support accepted, not-talk twice) | **6/6** | `results/own-a-1.log` |
+| Styles at reps 1: pieces / in_words / asks_back / talkative | 10/10 / 10/10 / 9/10 / 8/10 | `results/a-*-3.log`, `results/a-*-4.log` |
+| Workflow built from Track B's real extracted spec (not the gold) | 8/10 at reps 1 before the last fixes (both misses since fixed or a judge dispute) | `results/ext-a-1.log` |
+| Full one-command build of Brief A from the brief file (extraction with the subscription backend) | 6.7 min to a saved, published, smoke-tested agent; 645 static checks, verify 0 errors | `results/e2e-a-build.log`, `submission/e2e-a.trace.txt` |
+| Local suites (seconds) | static tests 651 (A) / 708 (A+B) passed; flows 10/10, 3/3, own 6/6; raw-mock specs 564/606 passed with their own tool API | `builder/static_tests.py`, `dev/cases/flows_*.py` |
+
+Baseline for comparison: the kit's base agent scored 0/10 on A (`dev/baselines.md`).
+
+## 2. What was built
+
+### Platform knowledge (Phase 1 spikes, memory.md §3c)
+Nine spikes in one scripted chat session against practice sessions (`dev/spikes/`). Key facts: hooks run on engine-run
+calls but not on a failed call; mapped lists arrive as None (post-hook JSON instead); flattened keys and counters are
+named after the node; `{{x:json}}` sends strings (pre-hook coercion sends numbers); the close node's `on_enter` line comes
+after the request starts (so a goodbye node precedes a silent close); extraction sees assistant turns, anchors relative
+dates on the real clock, does not resolve `{{var}}`; chat/message never speaks the initial `on_enter` and suppresses
+first-turn routing; a code write to an extraction-declared variable can be lost in the same turn; `time.sleep` works in
+the sandbox; a simulation can stay "running" after its calls ended (watchdog `dev/unstick.py`).
+
+### Generator (`builder/generate.py`, `builder/openapi_tools.py`, `builder/templates/snippets/*.py`)
+- Code only, no model call at generate time. Byte-identical output for the same spec.
+- Tools from the OpenAPI file (url, fields, enums, numeric coercion in pre-hooks, `maxRetries 0` on writes, post-hooks that
+  write per-step status flags and a `what_to_do_next` line).
+- 69-node graph: opening → opening router → identity question nodes (model tool with the field baked, post-hook status,
+  decline/purpose/why/chatter routing) → account load → account facts (bands, deadlines, floors, speakable debt lines)
+  → debt statement (fixed line) → negotiation router (the policy engine: amounts, dates, attempts, special intents,
+  multi-product scope, deadline-adjusted dates) → fixed-line proposal node or model node for questions → read-back
+  (fixed line, strict confirm) → guard → engine-run `create_promise` with one retry → recorded line → notes loop (B) →
+  wrap-up (aggregation, close row) → goodbye (fixed line or model) → optional transfer → one close node per outcome
+  row (literal body, no reason leaf where the table has none) → end_call.
+- Every spoken amount and date is built in code from the `now` call variable: business days, holidays, nth business day,
+  last business day of the week, this/next/week-after-next weekday, day-of-month resolution, callback window.
+- Honesty: the agent says "recorded" only from a fixed line after `ok: true`; failures are retried once then stated.
+- Robustness learned from the runs: cut-off customer turns get one clarification before counting as a non-answer;
+  a named date or amount overrides "accepts the offer"; number fragments are not amounts; a question asked in the
+  same breath as an answer is answered before the fixed line; a 3 s pause before replying (talkative customers were
+  being cut off); turn caps on every conversation node that route to a close; the model never claims a failed check.
+- Generic by construction: hidden-brief vocabulary comes from the spec and the tool API (identity fields, queues,
+  outcomes, reasons, product labels, holidays, bands, attempts, sentences). The literal audit is clean.
+
+### Local testing
+- `builder/flowsim.py`: a local engine that walks the generated graph, execs the real code nodes and hooks against a
+  fake bank (shape from the tool API), with scripted extraction values. `dev/cases/flows_a.py`, `flows_b.py`,
+  `flows_own.py` replay the 13 practice customers and the 6 own cases in under a second.
+- `builder/static_tests.py` (Phase 6): workflow lint (nulls, braces, targets, passthrough `always`, C11 on tool nodes,
+  min_confidence, retries, reachability, placeholder data flow), and invariants derived from the spec on 17 `now` dates
+  (deadlines, attempt-1 date, non-business days, after-deadline, exhausted attempts, guard, double write failure,
+  callback window, identity failure, B aggregation).
+- `dev/cases/own_a.json`: six own cases reusing practice customers with new scripts and brief-derived expectations.
+- `dev/issues.json`: 13 issues with evidence (call ids), status and fix history.
+
+### CLI, trace, smoke, export (Phase 7, `builder/build.py`, `builder/smoke.py`, `builder/freya_io.py`)
+`python3 builder/build.py <brief files...> <tool_api.json> --slot NAME [--votes 3] [--skip-smoke] [--spec x.json]`
+→ extract (Track B) → generate → static tests → dry run → save and publish (slot reused, state file absolute) →
+two-turn chat smoke test → export `submission/<slot>.workflow.json` → `submission/<slot>.trace.txt` (start/end,
+every model call, created objects, tests, secrets redacted). Exit code non-zero only if no agent was saved. README has
+the run instructions.
+
+### Evaluation tooling
+`tools/run_cases.py` (kit) driven in background chains; `dev/spikes/chatdrive.py` walks a scripted conversation through
+chat/message against a practice session and dumps events, variables and the ledger; `dev/unstick.py` watchdog.
+
+## 3. Platform slots
+`base` (kit agent), `spike`, `brief-a` (gold A), `brief-ab` (gold A+B), `mock` (latest build under test), `ext-a`
+(Track B extracted spec), `e2e-a` (full one-command build). Slots are reused; never create new ones for reruns.
+
+## 4. Not closed (see final.md)
+- Measurement of the paused build (talkative, asks_back) and A/B at reps 3 on that exact build.
+- Practice run of the `e2e-a` agent; reproducibility comparison of two extractions; raw-mock runbook dry run.
+- Judge dispute ISS-009 (the mandated "This call is recorded" opening trips a literal check) is accepted, not fixed.
+- Platform filler "Bir saniye lütfen." on slow turns (ISS-003) cannot be controlled from the workflow.
