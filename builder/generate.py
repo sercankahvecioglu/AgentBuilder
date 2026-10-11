@@ -70,6 +70,8 @@ def api_node(name: str, tool: dict, default: str, transitions: List[dict]) -> di
     }
 
 
+WRITE_TIMEOUT_MS = 25000   # a write that answers slowly is still a write; 12 s timed out on a busy bank while the record was made
+
 FIXED_LINE_MODE = "tts"   # "tts" = instant fixed line; "llm" = the model repeats the fixed line word for word (streams like any reply)
 
 
@@ -100,7 +102,8 @@ def conv_node(name: str, task: str, transitions: List[dict], extraction: List[di
 
 
 def ev(name: str, values: List[str], desc: str) -> dict:
-    return {"name": name, "type": "string", "enum_values": values, "description": desc, "min_confidence": MIN_CONF}
+    # an intent the spec names may coincide with a built-in value (deceased, wrong_number): one entry, in order
+    return {"name": name, "type": "string", "enum_values": list(dict.fromkeys(values)), "description": desc, "min_confidence": MIN_CONF}
 
 
 def row_key(outcome: str, reason: str) -> str:
@@ -115,6 +118,18 @@ def is_instruction(text: str) -> bool:
     """True when an extracted 'sentence' is an instruction to the agent rather than words to speak."""
     s = (text or "").strip()
     return bool(IMPERATIVE.match(s)) and (" you " in f" {s.lower()} " or " that " in f" {s.lower()} " or s.lower().startswith(("say ", "tell ", "explain ", "mention ", "state ")))
+
+
+CONTINUE_TAIL = re.compile(r"[,;]?\s*(and|then)\s+(continue|carry on|proceed)( with the call| the call)?\s*[.!]?\s*$", re.I)
+
+
+def spoken_instruction(text: str) -> str:
+    """An intent's say_text without a trailing 'and continue' (the model echoed it word for word)."""
+    t = (text or "").strip()
+    t2 = CONTINUE_TAIL.sub("", t).strip()
+    if t2 and t2 != t and not t2.endswith((".", "!", "?")):
+        t2 += "."
+    return t2 or t
 
 
 def lang_name(x: str) -> str:
@@ -213,7 +228,7 @@ class Generator:
                 "too_much_offer_floor_once": bool(tv(s.amounts.too_much.offer_floor_once)), "too_much_say_rest_overdue": bool(tv(s.amounts.too_much.say_rest_overdue)),
                 "below_floor_offer_floor_once": bool(tv(s.amounts.below_floor.offer_floor_once)),
             },
-            "intents": [it.model_dump() for it in s.special_intents],
+            "intents": [dict(it.model_dump(), say_text=self.braces(spoken_instruction(it.say_text)), ask_once_text=self.braces(it.ask_once_text)) for it in s.special_intents],
             "recording": {"max_attempts": int(tv(s.recording.max_attempts)), "failure_note_reason": tv(s.recording.failure_note_reason),
                           "failure_outcome": s.recording.failure_close.outcome, "failure_reason": s.recording.failure_close.reason, "failure_say": tv(s.recording.failure_say)},
             "closing": {
@@ -228,7 +243,18 @@ class Generator:
             "date_over_deadline_use_product_deadline": bool(tv(s.multi_product.date_over_deadline_use_product_deadline_and_say_so)),
             "multi": self.multi,
             "reply_delay_s": 0.0,
+            # fixed-line re-asks exist when every security question and the confirmation question are ready to speak
+            "id_again": all(bool(q.ask_text.strip()) and not is_instruction(q.ask_text) and "?" in q.ask_text for q in idn.questions),
+            "rb_again": not is_instruction(tv(s.confirmation.confirm_question)),
+            "opening_again": not is_instruction(tv(s.opening.confirm_question)),
         }
+
+    def braces(self, text: str) -> str:
+        """`{name}` for a call variable becomes `{{name}}` so the platform substitutes it (a bare `{name}` is echoed)."""
+        t = text or ""
+        for cv in self.spec.call_variables:
+            t = re.sub(r"(?<!\{)\{" + re.escape(cv.name) + r"\}(?!\})", "{{" + cv.name + "}}", t)
+        return t
 
     def _promise_outcome(self) -> str:
         """The outcome row that means 'a promise was recorded': the first row without a reason whose `when` mentions a promise, else the first row."""
@@ -251,6 +277,8 @@ class Generator:
         for k in H['ids']:
             if ok and not d.get(k):
                 ok = False
+        if not ok and isinstance(d, dict) and 'already' in str(d.get('error') or '').lower():
+            ok = True  # the record exists (a retry after a lost response): done
         vars[H['flag']] = 'ok' if ok else 'failed'
         if isinstance(d, dict):
             d['what_to_do_next'] = H['ok'] if ok else (H['fail'] or ('Not done: ' + str(d.get('error') or 'unknown error')))
@@ -376,8 +404,10 @@ except Exception:
         ask_keys = [it.key for it in self.spec.special_intents if it.continue_call]
         asks = ev("asks", ask_keys + ["other_question", "none"],
                   "A question the customer asks the agent in the latest message in addition to anything about paying: " + self.intent_desc(ask_keys) + " other_question: any other question to the agent; none: no question.")
-        frag = ev("fragment", ["yes", "no"], "yes if the customer's latest message is cut off or unfinished (it stops mid-sentence or mid-word, or only starts a thought without reaching the point); no otherwise.")
-        return [pay, asks, frag] + self.date_parts("the payment") + [self.amount_part()] + self.scope_parts()
+        return [pay, asks, self.fragment_part()] + self.date_parts("the payment") + [self.amount_part()] + self.scope_parts()
+
+    def fragment_part(self) -> dict:
+        return ev("fragment", ["yes", "no"], "yes if the customer's latest message is cut off or unfinished (it stops mid-sentence or mid-word, ends with a dangling word such as 'the', 'I mean' or a comma, or only starts a thought without reaching the point); no otherwise.")
 
     def scope_parts(self) -> List[dict]:
         if not self.multi:
@@ -388,8 +418,8 @@ except Exception:
     # ---- prompts
     def system_prompt(self) -> str:
         s = self.spec
-        glob = [b.agent_instruction for b in s.behaviour_rules if b.stage == "global"]
-        cont = [f"If {it.trigger_description[0].lower() + it.trigger_description[1:]} {it.say_text}".replace("..", ".") for it in s.special_intents if it.continue_call and it.say_text]
+        glob = [self.braces(b.agent_instruction) for b in s.behaviour_rules if b.stage == "global"]
+        cont = [self.braces(f"If {(it.trigger_description[0].lower() + it.trigger_description[1:]).rstrip('. ')}: {spoken_instruction(it.say_text)}") for it in s.special_intents if it.continue_call and it.say_text]
         lines = [
             f"You are {tv(s.agent_self_description)}, on an outbound phone call. Speak {lang_name(tv(s.language))}.",
             "Keep every turn to one or two short sentences. Ask one question at a time. Be polite and plain.",
@@ -404,7 +434,7 @@ except Exception:
         return "\n".join("- " + x for x in lines)
 
     def stage_rules(self, stage: str) -> str:
-        rs = [b.agent_instruction for b in self.spec.behaviour_rules if b.stage == stage]
+        rs = [self.braces(b.agent_instruction) for b in self.spec.behaviour_rules if b.stage == stage]
         ph = [f"Say exactly: \"{p.text}\" ({p.when})." for p in self.spec.required_phrases if p.stage == stage and "{" not in p.text]
         return "\n".join("- " + x for x in rs + ph)
 
@@ -436,11 +466,17 @@ except Exception:
                     "deceased: the customer has died. asks_question: a question to the agent (who is this, is this a robot, is this a scam, what is this about). "
                     + self.intent_desc(who_keys) + " unclear: hello, go ahead or anything that does not confirm. none: nothing relevant.")
         nodes["opening"] = conv_node("opening", opening_task, [always("route_opening")],
-                                     extraction=[ev("who", who_vals, who_desc)],
+                                     extraction=[ev("who", who_vals, who_desc), self.fragment_part()],
                                      on_enter=({"type": "llm"} if first_is_instr else {"type": "tts", "text": f"{first} {confirm_q}"}), first_only=True)
+        if not is_instruction(tv(s.opening.confirm_question)):
+            # a reply that does not confirm and asks nothing: the confirmation question is asked again as a fixed line
+            nodes["opening_again"] = conv_node("opening_again", opening_task, [always("route_opening")],
+                                               extraction=nodes["opening"]["extraction_schema"],
+                                               on_enter={"type": "tts", "text": f"Sorry, I did not catch that. {confirm_q}"})
         nodes["route_opening"] = code_node("route_opening", self.snippet("route_opening"), "opening",
                                            [eq("identity_start", "opening_next", "identity_start"), eq("third_party", "opening_next", "third_party"),
-                                            eq("wrap_up", "opening_next", "wrap_up"), eq("offer", "opening_next", "offer"), eq("resume_router", "opening_next", "resume_router")])
+                                            eq("wrap_up", "opening_next", "wrap_up"), eq("offer", "opening_next", "offer"), eq("resume_router", "opening_next", "resume_router")]
+                                           + ([eq("opening_again", "opening_next", "opening_again")] if "opening_again" in nodes else []))
 
         # 2 third party
         tp = s.third_party
@@ -455,9 +491,13 @@ except Exception:
                                                         + self.intent_desc(tp_keys) + " none: nothing of these.")]
                                          + self.date_parts("the callback") +
                                          [{"name": "cb_time", "type": "string", "min_confidence": MIN_CONF, "validation_pattern": "^([01]?[0-9]|2[0-3]):[0-5][0-9]$", "max_retries": 1,
-                                           "description": "The time of day the person names in the latest message, as HH:MM in 24-hour form ('around eleven in the morning' -> 11:00, 'half past two in the afternoon' -> 14:30, 'at 6 pm' -> 18:00); leave empty if no time is named."}])
+                                           "description": "The time of day the person names in the latest message, as HH:MM in 24-hour form ('around eleven in the morning' -> 11:00, 'half past two in the afternoon' -> 14:30, 'at 6 pm' -> 18:00); leave empty if no time is named."},
+                                          self.fragment_part()],
+                                         max_turns=14, cap_target="tp_cap")
         nodes["callback_check"] = code_node("callback_check", self.snippet("callback_check"), "third_party",
                                             [eq("do_callback", "tp_next", "do_callback"), eq("wrap_up", "tp_next", "wrap_up"), eq("offer", "tp_next", "offer"), eq("resume_router", "tp_next", "resume_router")])
+        # the third-party node's turn cap closes as "no callback", never with the negotiation fallback row
+        nodes["tp_cap"] = code_node("tp_cap", self.const_text + self.prelude + "\ntry:\n    tpc = CONST.get('third_party') or dict()\n    _set_close(tpc.get('no_callback_outcome'), tpc.get('no_callback_reason'), '', 'No callback could be arranged.')\nexcept Exception:\n    pass\n", "wrap_up", [])
         cb_op = self._op_with_fields(["date", "time"]) or "schedule_callback"
         cb_fields = self.api.op(cb_op).fields
         baked = {self.cid: "{{" + self.cid + "}}"}
@@ -468,7 +508,7 @@ except Exception:
                 baked[f] = "{{cb_date}}"
             elif "time" in f:
                 baked[f] = "{{cb_time}}"
-        nodes["do_callback"] = api_node("do_callback", api_tool(self.api, cb_op, baked, pre=self.hook_pre_numeric(cb_op), post=self.hook_post_status("cb_status", self.api.op(cb_op).id_fields, "Callback scheduled.")),
+        nodes["do_callback"] = api_node("do_callback", api_tool(self.api, cb_op, baked, pre=self.hook_pre_numeric(cb_op), post=self.hook_post_status("cb_status", self.api.op(cb_op).id_fields, "Callback scheduled."), timeout_ms=WRITE_TIMEOUT_MS),
                                         "callback_result", [])
         nodes["callback_result"] = code_node("callback_result", self.snippet("callback_result"), "wrap_up", [])
 
@@ -486,7 +526,16 @@ except Exception:
         id_rules = self.stage_rules("identity")
         for i, q in enumerate(idn.questions):
             nxt = f"identity_q{i + 1}" if i + 1 < len(idn.questions) else "load_account"
-            task = (f"Security question {i + 1} of {len(idn.questions)}. {q.ask_text} Ask one question at a time.\n{{{{id_hint}}}}\n"
+            # a ready-to-speak question is said as a fixed line on entry (no model call between the previous tool
+            # result and the next question: that model call was the slowest turn of every call); an instruction stays llm
+            q_speakable = bool(q.ask_text.strip()) and not is_instruction(q.ask_text) and "?" in q.ask_text
+            if q_speakable:
+                ask_rule = f"The question is exactly: \"{q.ask_text}\""
+                q_enter = {"type": "tts", "text": ("Thank you. " if i > 0 else "") + q.ask_text.strip()}
+            else:
+                ask_rule = q.ask_text
+                q_enter = {"type": "llm"}
+            task = (f"Security question {i + 1} of {len(idn.questions)}. {ask_rule} Ask one question at a time.\n{{{{id_hint}}}}\n"
                     f"When the customer answers, convert the answer to this format: {q.answer_format}" + (f" (a date given only as numbers is read as {q.numeric_date_order.replace('_', ', ')})" if q.numeric_date_order else "") +
                     f", then CALL {vq} with it. Do not state any account details. If asked why you need this, say the questions protect the account.\n"
                     "If the customer gives the answer in parts over several turns, combine the parts into one answer and call the tool as soon as the answer is complete; do not ask for parts you already have. "
@@ -504,11 +553,21 @@ except Exception:
             ex = [ev("id_reply", ["declines", "asks_purpose", "asks_why", "chatter"] + id_keys + ["none"],
                      "Based only on the customer's latest message: declines: they refuse to answer the security question; asks_purpose: they ask what the call or the account is about instead of answering; asks_why: they ask why the agent needs this answer or what it is for, without refusing; chatter: they talk about something else (their day, work, traffic, family) or the message is cut off, and give no answer at all; none: the message contains an answer to the security question (a date, digits, a code), even alongside a question or chatter; "
                      + self.intent_desc(id_keys) + " none: they answered the question, asked how to answer, or said something else.")]
-            n = conv_node(f"identity_q{i}", task, trans, extraction=ex, tools=[tool], max_turns=10, cap_target="id_cap")
+            # 20 turns: a customer whose turns arrive cut off needs several turns per answer before the wrong-answer limit is reached
+            n = conv_node(f"identity_q{i}", task, trans, extraction=ex, tools=[tool], max_turns=20, cap_target="id_cap",
+                          on_enter=q_enter, first_only=q_speakable)
             nodes[f"identity_q{i}"] = n
+            if self.const["id_again"]:
+                # chatter or a cut-off turn re-asks the question as a fixed line (no model call); every entry replays it
+                again = json.loads(json.dumps(n))
+                again["name"] = f"identity_q{i}_again"
+                again["on_enter"] = {"type": "tts", "text": "Sorry, I am listening. " + q.ask_text.strip()}
+                again.pop("on_enter_first_entry_only", None)
+                nodes[f"identity_q{i}_again"] = again
         # set id_node when entering each question: done through small code nodes is heavy; instead the router reads id_node set by id_router targets
         nodes["id_router"] = code_node("id_router", self.snippet("id_router"), "identity_q0",
                                        [eq(f"identity_q{i}", "id_next", f"identity_q{i}") for i in range(len(idn.questions))]
+                                       + [eq(f"identity_q{i}_again", "id_next", f"identity_q{i}_again") for i in range(len(idn.questions)) if f"identity_q{i}_again" in nodes]
                                        + [eq("wrap_up", "id_next", "wrap_up"), eq("offer", "id_next", "offer"), eq("resume_router", "id_next", "resume_router")])
         nodes["id_locked"] = code_node("id_locked", self.snippet("id_locked"), "wrap_up", [])
         nodes["id_cap"] = code_node("id_cap", self.const_text + self.prelude + "\ntry:\n    idc = CONST.get('identity') or dict()\n    _set_close(idc.get('decline_outcome'), idc.get('decline_reason'), '', 'I could not complete the security check.')\nexcept Exception:\n    pass\n", "wrap_up", [])
@@ -516,10 +575,10 @@ except Exception:
         for i in range(1, len(idn.questions)):
             nodes[f"identity_q{i}_enter"] = code_node(f"identity_q{i}_enter", self.const_text + self.prelude + f"\ntry:\n    vars['id_node'] = 'identity_q{i}'\n    vars['id_hint'] = ''\n    vars['id_reply'] = 'none'\n    _pause()\nexcept Exception:\n    pass\n", f"identity_q{i}", [])
             # re-point transitions that go to identity_q{i} from the previous question to the enter node
-            prev = nodes[f"identity_q{i - 1}"]
-            for t in prev["transitions"]:
-                if t["target_node"] == f"identity_q{i}":
-                    t["target_node"] = f"identity_q{i}_enter"
+            for pn in (f"identity_q{i - 1}", f"identity_q{i - 1}_again"):
+                for t in nodes.get(pn, {}).get("transitions", []):
+                    if t["target_node"] == f"identity_q{i}":
+                        t["target_node"] = f"identity_q{i}_enter"
 
         # 4 account
         ga = self._op_with_fields([]) or "get_account"
@@ -528,7 +587,7 @@ except Exception:
 
         # 5 negotiation
         neg = s.negotiation
-        nego_rules = "\n".join("- " + b.agent_instruction for b in s.behaviour_rules if b.stage == "negotiation")
+        nego_rules = "\n".join("- " + self.braces(b.agent_instruction) for b in s.behaviour_rules if b.stage == "negotiation")
         debt_task = (f"The customer is verified. {tv(s.debt_statement.intro_instruction)} State each late product with its figures, one sentence per product, from this list and nothing else:\n{{{{debt_text}}}}\n"
                      f"Then ask exactly: \"{tv(neg.first_question)}\"" + (" (about all products together)" if self.multi else "") + ".\n"
                      "Do not ask how much the customer can pay. No tool call is allowed in this step.")
@@ -562,12 +621,18 @@ except Exception:
         nodes["readback"] = conv_node("readback", rb_task, [always("readback_router")],
                                       on_enter=rb_tts, first_only=True,
                                       extraction=[ev("rb", rb_vals, "Based only on the customer's latest message: confirms: an explicit yes, correct, that's right or I confirm, and nothing else is changed; changes: they name another day or amount, or give a fragment of a date (set the other fields); refuses: they no longer want to promise; "
-                                                     + self.intent_desc(rb_keys) + " asks_question: a question; none: unclear.")] + self.date_parts("the payment") + [self.amount_part()] + self.scope_parts())
+                                                     + self.intent_desc(rb_keys) + " asks_question: a question; none: unclear."), self.fragment_part()] + self.date_parts("the payment") + [self.amount_part()] + self.scope_parts())
+        if rb_tts.get("type") == "tts":
+            # an unclear or cut-off answer to the read-back: the read-back is repeated as a fixed line (no model call)
+            nodes["readback_again"] = conv_node("readback_again", rb_task, [always("readback_router")],
+                                                on_enter=fixed_line("Sorry, I did not catch that. To confirm: {{readback_text}}. " + tv(conf.confirm_question)),
+                                                extraction=nodes["readback"]["extraction_schema"])
         nodes["readback_llm"] = conv_node("readback_llm", "{{rb_hint}}\nThen, in the same turn, read the promise back exactly like this and ask the question word for word: \"To confirm: {{readback_text}}. " + tv(conf.confirm_question) + "\"\nNo tool call is allowed in this step.",
                                           [always("readback_router")], extraction=nodes["readback"]["extraction_schema"])
         nodes["negotiation_router"]["transitions"].insert(0, eq("readback_llm", "nego_next", "readback_llm"))
         nodes["readback_router"] = code_node("readback_router", self.snippet("readback_router"), "readback",
-                                             [eq("promise_guard", "rb_next", "promise_guard"), eq("negotiation_router", "rb_next", "negotiation_router")])
+                                             [eq("promise_guard", "rb_next", "promise_guard"), eq("negotiation_router", "rb_next", "negotiation_router")]
+                                             + ([eq("readback_again", "rb_next", "readback_again")] if "readback_again" in nodes else []))
 
         # 7 write loop (G2)
         cp = self._op_with_fields(["amount", "date"]) or "create_promise"
@@ -583,7 +648,7 @@ except Exception:
             elif "date" in f:
                 baked[f] = "{{p_date}}"
         nodes["promise_guard"] = code_node("promise_guard", self.snippet("promise_guard"), "wrap_up", [eq("do_promise", "pg_next", "do_promise"), eq("negotiation_router", "pg_next", "negotiation_router")])
-        nodes["do_promise"] = api_node("do_promise", api_tool(self.api, cp, baked, pre=self.hook_pre_numeric(cp), post=self.hook_post_status("pr_status", self.api.op(cp).id_fields, "Promise recorded.")), "promise_result", [])
+        nodes["do_promise"] = api_node("do_promise", api_tool(self.api, cp, baked, pre=self.hook_pre_numeric(cp), post=self.hook_post_status("pr_status", self.api.op(cp).id_fields, "Promise recorded."), timeout_ms=WRITE_TIMEOUT_MS), "promise_result", [])
         nodes["promise_result"] = code_node("promise_result", self.snippet("promise_result"), "wrap_up",
                                             [eq("do_promise", "prs_next", "do_promise"), eq("promise_guard", "prs_next", "promise_guard"), eq("say_recorded", "prs_next", "say_recorded")])
         rec = s.recording
@@ -624,7 +689,7 @@ except Exception:
                 baked[f] = "{{note_reason}}"
             else:
                 omit.append(f)
-        nodes["do_note"] = api_node("do_note", api_tool(self.api, an, baked, omit=omit, post=self.hook_post_status("note_status", [], "Noted.")), "wrap_up", [])
+        nodes["do_note"] = api_node("do_note", api_tool(self.api, an, baked, omit=omit, post=self.hook_post_status("note_status", [], "Noted."), timeout_ms=WRITE_TIMEOUT_MS), "wrap_up", [])
         goodbye_task = ("This is the last thing you say in this call. {{goodbye_prefix}}\nThen, in the same turn, thank the customer for their time and say goodbye in one short sentence. "
                         "Ask no question of any kind, propose nothing, mention no amount, date or payment, and do not call any tool.")
         nodes["goodbye"] = conv_node("goodbye", goodbye_task, [always("pre_close")])
@@ -633,7 +698,7 @@ except Exception:
         nodes["pre_close"] = code_node("pre_close", self.snippet("pre_close"), "close_router", [eq("do_transfer", "pc_next", "do_transfer")])
         tr = self._op_with_fields(["queue"]) or "transfer_to_agent"
         qf = next((f for f, sch in self.api.op(tr).fields.items() if sch.get("enum") and f != self.cid), "queue")
-        nodes["do_transfer"] = api_node("do_transfer", api_tool(self.api, tr, {self.cid: "{{" + self.cid + "}}", qf: "{{transfer_queue}}"}, post=self.hook_post_status("tr_status", [], "Transferred.")), "close_router", [])
+        nodes["do_transfer"] = api_node("do_transfer", api_tool(self.api, tr, {self.cid: "{{" + self.cid + "}}", qf: "{{transfer_queue}}"}, post=self.hook_post_status("tr_status", [], "Transferred."), timeout_ms=WRITE_TIMEOUT_MS), "close_router", [])
         cc = self._op_with_fields(["outcome"]) or "close_call"
         of = next((f for f, sch in self.api.op(cc).fields.items() if sch.get("enum") and f != self.cid), "outcome")
         rf = next((f for f in self.api.op(cc).fields if f not in (self.cid, of)), "reason")
@@ -646,11 +711,13 @@ except Exception:
                 baked[rf] = r
             else:
                 omit = [rf]
-            nodes["close_" + k] = api_node("close_" + k, api_tool(self.api, cc, baked, omit=omit, post=self.hook_post_status("close_status", [], "Closed.")), "end_" + k, [])
+            nodes["close_" + k] = api_node("close_" + k, api_tool(self.api, cc, baked, omit=omit, post=self.hook_post_status("close_status", [], "Closed."), timeout_ms=WRITE_TIMEOUT_MS), "end_" + k, [])
             nodes["end_" + k] = end_node("end_" + k, k)
 
-        for n, cap, target in (("offer", 6, "wrap_up"), ("readback", 8, "wrap_up"), ("readback_llm", 8, "wrap_up"), ("third_party", 8, "wrap_up"),
-                               ("goodbye", 3, "pre_close"), ("goodbye_tts", 3, "pre_close"), ("say_recorded", 3, "after_recorded"), ("opening", 6, "route_opening")):
+        for n, cap, target in (("offer", 6, "wrap_up"), ("readback", 8, "wrap_up"), ("readback_again", 8, "wrap_up"), ("readback_llm", 8, "wrap_up"),
+                               ("goodbye", 3, "pre_close"), ("goodbye_tts", 3, "pre_close"), ("say_recorded", 3, "after_recorded"), ("opening", 6, "route_opening"), ("opening_again", 6, "route_opening")):
+            if n not in nodes:
+                continue
             nodes[n]["max_node_turns"] = cap
             nodes[n]["max_turn_transition"] = target
         wf = {

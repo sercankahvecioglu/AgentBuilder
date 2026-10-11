@@ -26,8 +26,19 @@ try:
         if not more:
             nxt = 'say_recorded'
     else:
-        n = _i(vars.get('pr_attempts')) + 1
+        code = _i(vars.get('do_promise_response.status_code'))
+        err = _s(vars.get('do_promise_response.error')).lower()
+        unknown = code == 408 or 'timed out' in err or 'timeout' in err
+        n = _i(vars.get('pr_attempts'))
+        if unknown and _i(vars.get('pr_unknown')) < 1:
+            # the platform gave up waiting; the bank may still have recorded it. One extra try: the bank answers
+            # "already ..." when it did (counted as recorded by the post-hook), else it records it now
+            vars['pr_unknown'] = '1'
+        else:
+            n = n + 1
         vars['pr_attempts'] = str(n)
+        vars['do_promise_response.status_code'] = ''
+        vars['do_promise_response.error'] = ''
         if n < _i(REC.get('max_attempts'), 2):
             vars['pr_status'] = ''
             nxt = 'do_promise'
