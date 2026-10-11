@@ -11,9 +11,9 @@
     }
   ],
   "repo": "https://github.com/sercankahvecioglu/AgentBuilder",
-  "commit": "767daf3",
-  "run_command": "python3 builder/build.py {case_folder} {mock_url} --mode agent --slot final",
-  "workflow": "submission/final.workflow.json",
-  "trace": "submission/final.trace.txt",
+  "commit": "277b18f",
+  "run_command": "python3 builder/build.py {case_folder} {mock_url} --mode agent --slot final-b",
+  "workflow": "submission/final-b.workflow.json",
+  "trace": "submission/final-b.trace.txt",
   "mock_url": "https://freya-final-mock.sarperkahvecioglu1.workers.dev"
 }
