@@ -457,9 +457,13 @@ except Exception:
                                                         + self.intent_desc(tp_keys) + " none: nothing of these.")]
                                          + self.date_parts("the callback") +
                                          [{"name": "cb_time", "type": "string", "min_confidence": MIN_CONF, "validation_pattern": "^([01]?[0-9]|2[0-3]):[0-5][0-9]$", "max_retries": 1,
-                                           "description": "The time of day the person names in the latest message, as HH:MM in 24-hour form ('around eleven in the morning' -> 11:00, 'half past two in the afternoon' -> 14:30, 'at 6 pm' -> 18:00); leave empty if no time is named."}])
+                                           "description": "The time of day the person names in the latest message, as HH:MM in 24-hour form ('around eleven in the morning' -> 11:00, 'half past two in the afternoon' -> 14:30, 'at 6 pm' -> 18:00); leave empty if no time is named."},
+                                          self.fragment_part()],
+                                         max_turns=14, cap_target="tp_cap")
         nodes["callback_check"] = code_node("callback_check", self.snippet("callback_check"), "third_party",
                                             [eq("do_callback", "tp_next", "do_callback"), eq("wrap_up", "tp_next", "wrap_up"), eq("offer", "tp_next", "offer"), eq("resume_router", "tp_next", "resume_router")])
+        # the third-party node's turn cap closes as "no callback", never with the negotiation fallback row
+        nodes["tp_cap"] = code_node("tp_cap", self.const_text + self.prelude + "\ntry:\n    tpc = CONST.get('third_party') or dict()\n    _set_close(tpc.get('no_callback_outcome'), tpc.get('no_callback_reason'), '', 'No callback could be arranged.')\nexcept Exception:\n    pass\n", "wrap_up", [])
         cb_op = self._op_with_fields(["date", "time"]) or "schedule_callback"
         cb_fields = self.api.op(cb_op).fields
         baked = {self.cid: "{{" + self.cid + "}}"}
@@ -662,7 +666,7 @@ except Exception:
             nodes["close_" + k] = api_node("close_" + k, api_tool(self.api, cc, baked, omit=omit, post=self.hook_post_status("close_status", [], "Closed.")), "end_" + k, [])
             nodes["end_" + k] = end_node("end_" + k, k)
 
-        for n, cap, target in (("offer", 6, "wrap_up"), ("readback", 8, "wrap_up"), ("readback_llm", 8, "wrap_up"), ("third_party", 8, "wrap_up"),
+        for n, cap, target in (("offer", 6, "wrap_up"), ("readback", 8, "wrap_up"), ("readback_llm", 8, "wrap_up"),
                                ("goodbye", 3, "pre_close"), ("goodbye_tts", 3, "pre_close"), ("say_recorded", 3, "after_recorded"), ("opening", 6, "route_opening")):
             nodes[n]["max_node_turns"] = cap
             nodes[n]["max_turn_transition"] = target
