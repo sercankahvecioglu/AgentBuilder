@@ -112,7 +112,7 @@ DONE 06:32 UTC: own cases 6/6 on the final build (`results/own-a-2.log`), tag `p
 7. Stop all background runners and the watchdog. Nothing may be running on the workspace at 15:00.
 
 ### Step 7: Sunday 17:00-20:00 (the user must be present)
-Note 15:48 UTC: the platform was very slow in the hour before 17:00 (35-45 s per chat turn). The build's smoke test may then log 504s; that is a warning, not a build failure, and the build still saves, exports and exits 0. Do not retry the build for a smoke 504. The submission base is tag `pre-final` = commit `ea39ee4` (builder identical to the measured build; the sarper-dev merge was reverted, see ISS-018).
+Note 15:48 UTC: the platform was very slow in the hour before 17:00 (35-45 s per chat turn). The build's smoke test may then log 504s; that is a warning, not a build failure, and the build still saves, exports and exits 0. Do not retry the build for a smoke 504. The submission base is tag `pre-final` = merge commit `9bab106` (sarper-dev generator merged at 16:41 after it scored A 10/10 on a recovered platform; see memory.md 16:42). Its build also retries save/export on 502/504 and writes a fallback export if every save fails.
 1. Put each hidden brief's files and its tool API in `final_inputs/<brief-1>/` and `final_inputs/<brief-2>/` (any text files; the API file last on the command line). Do not paste their content anywhere else.
 2. Check the subscription window is fresh (two builds need 4-6 large calls). Fallback: `ANTHROPIC_API_KEY` in `.env` with `BUILDER_BACKEND=api`.
 3. Build, one brief at a time, in the background with a log, and watch the trace:
