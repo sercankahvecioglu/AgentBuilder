@@ -36,8 +36,26 @@ against the tool API → generate the workflow with code only → static tests �
 |---|---|
 | `builder/` | the builder: `build.py` (CLI), `inputs.py`, `llm.py`, `extract.py`, `resolve.py`, `vote.py`, `verify.py` (extraction), `schema.py` (spec contract), `openapi_tools.py`, `generate.py`, `templates/snippets/` (generator), `static_tests.py`, `flowsim.py`, `smoke.py`, `freya_io.py`, `trace.py` |
 | `dev/` | development material the builder never reads: `notes/` (plan, memory, guide, what is done, final runbook), `gold/` (hand-written specs), `cases/` (own cases and local flow scripts), `tests/`, `mock_briefs/`, `spikes/`, `issues.json`, `eval_extract.py`, `audit_grep.py`, `unstick.py` |
+| `mock/` | our mock of the bank's services for the final case (Cloudflare Workers; `src/contract.js` holds the service contract and test customers) |
 | `submission/` | the exported workflows and traces of the final builds |
 | `out/`, `results/` | build outputs and practice-run logs (git-ignored) |
+
+## The final case (one folder of documents, our own mock)
+
+The final case is a folder of the bank's documents (Markdown, Word, PDF, Excel) and a mock of the bank's services that
+we host on Cloudflare Workers (`mock/`, see `mock/README.md`). The mock serves its own tool API at `/openapi.json`, so
+the builder needs only the folder and the mock's URL:
+
+```bash
+pip install -r requirements.txt            # adds python-docx, openpyxl, pypdf for Word/PDF/Excel inputs
+set -a && source .env && set +a
+python3 builder/build.py <case_folder> https://<mock>.workers.dev --slot final 2>&1 | tee traces/final.log
+```
+
+Outputs as before: `out/final.spec.json`, `out/final.workflow.json`, `submission/final.workflow.json` (the export) and
+`submission/final.trace.txt`. The call language comes from the documents (the spec's `language`); every fixed spoken
+line, date and amount format follows it (English and Turkish are built in). Nothing from the case is in the builder:
+the mock's `src/contract.js` holds the service contract and the test customers, the builder reads the folder.
 
 ## The ten-minute start
 

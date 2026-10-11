@@ -17,6 +17,8 @@ try:
     who = _s(vars.get('who')).lower()
     _pause()
     vars['who'] = 'none'
+    frag = _s(vars.get('fragment')).lower() == 'yes'
+    vars['fragment'] = 'no'
     asks = _i(vars.get('confirm_asks'), 1)
     mx = _i(CONST.get('max_confirm_asks'), 2)
     nxt = 'opening'
@@ -31,7 +33,7 @@ try:
         nxt = 'third_party'
     elif who == 'wrong_number':
         tp = CONST.get('third_party') or dict()
-        _set_close(tp.get('wrong_number_outcome'), tp.get('wrong_number_reason'), '', 'I apologise for the disturbance.')
+        _set_close(tp.get('wrong_number_outcome'), tp.get('wrong_number_reason'), '', _ph('apologise'))
         nxt = 'wrap_up'
     elif who == 'deceased':
         tp = CONST.get('third_party') or dict()
@@ -61,14 +63,22 @@ try:
             op = CONST.get('opening') or dict()
             _set_close(op.get('unclear_outcome'), op.get('unclear_reason'), 'Answer the question briefly. Say you could not confirm who is on the line.')
             nxt = 'wrap_up'
+    elif frag and _i(vars.get('opening_frag')) < 3:
+        # a cut-off reply is heard again before it counts as an ask
+        vars['opening_frag'] = str(_i(vars.get('opening_frag')) + 1)
+        vars['opening_hint'] = 'The reply was cut off. Ask the confirmation question again, exactly as before.'
+        if CONST.get('opening_again'):
+            nxt = 'opening_again'
     else:
         if asks >= mx:
             op = CONST.get('opening') or dict()
-            _set_close(op.get('unclear_outcome'), op.get('unclear_reason'), '', 'I could not confirm who is on the line.')
+            _set_close(op.get('unclear_outcome'), op.get('unclear_reason'), '', _ph('not_confirm'))
             nxt = 'wrap_up'
         else:
             vars['confirm_asks'] = str(asks + 1)
             vars['opening_hint'] = 'The reply did not confirm who is speaking. Ask the confirmation question again, exactly as before.'
+            if CONST.get('opening_again'):
+                nxt = 'opening_again'
     vars['opening_next'] = nxt
 except Exception as e:
     vars['opening_next'] = 'opening'

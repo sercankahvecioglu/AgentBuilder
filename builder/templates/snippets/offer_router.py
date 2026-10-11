@@ -14,10 +14,11 @@ try:
             reply = 'declines'
         else:
             vars['offer_hint'] = 'The answer was unclear. Ask only whether that was a yes or a no. Do not repeat or rephrase the offer and add nothing else.'
+            vars['offer_say'] = ''
     if reply == 'accepts':
         if it.get('action_kind') == 'transfer' and _s(it.get('action_queue')):
             vars['transfer_queue'] = _s(it.get('action_queue'))
-            _set_close(it.get('close_outcome'), it.get('close_reason'), '', 'I will connect you with the ' + _s(it.get('action_queue')) + ' team now.')
+            _set_close(it.get('close_outcome'), it.get('close_reason'), '', _ph('connect', queue=_s(it.get('action_queue'))))
             nxt = 'wrap_up'
         elif _s(it.get('close_outcome')):
             _set_close(it.get('close_outcome'), it.get('close_reason'), '')
@@ -28,8 +29,13 @@ try:
             nxt = 'resume_router'
     elif reply == 'declines':
         if _s(it.get('declined_close_outcome')):
-            _set_close(it.get('declined_close_outcome'), it.get('declined_close_reason'), '', 'I understand.')
+            _set_close(it.get('declined_close_outcome'), it.get('declined_close_reason'), '', _ph('understand'))
             nxt = 'wrap_up'
+        elif bool(CONST.get('multi')) and it.get('continue_other_products') and _s(it.get('action_note_reason')) and resume in ('negotiate', 'negotiate_llm'):
+            # several products: the declined offer leaves this product noted and the call goes on with the others
+            vars['nego_cmd'] = key
+            vars['stage'] = 'negotiation'
+            nxt = 'negotiation_router'
         else:
             vars['resume_hint'] = 'Continue with your last question.'
             vars['resume_node'] = resume

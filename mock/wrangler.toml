@@ -1,0 +1,13 @@
+name = "freya-final-mock"
+main = "src/index.js"
+compatibility_date = "2026-09-01"
+
+# One Durable Object per customer holds that customer's record: strongly consistent, so a tool call always sees the
+# previous one (KV is only eventually consistent across edge locations).
+[[durable_objects.bindings]]
+name = "CUSTOMER"
+class_name = "Customer"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Customer"]

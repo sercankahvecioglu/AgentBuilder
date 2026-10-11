@@ -8,6 +8,8 @@ try:
     nxt = cur
     if reply == 'chatter':
         vars['id_hint'] = 'Say in a few words that you are listening, then ask the same question again.'
+        if CONST.get('id_again'):
+            nxt = cur + '_again'
     elif reply == 'asks_why':
         vars['id_hint'] = _s(idc.get('explain_once_text')) + ' Then ask the same question again.'
     elif reply in ('declines', 'asks_purpose'):
@@ -17,7 +19,7 @@ try:
             n = _i(vars.get('id_declines')) + 1
             vars['id_declines'] = str(n)
             if n >= _i(idc.get('max_declines'), 2):
-                _set_close(idc.get('decline_outcome'), idc.get('decline_reason'), '', 'I cannot continue without the security check.')
+                _set_close(idc.get('decline_outcome'), idc.get('decline_reason'), '', _ph('no_security'))
                 nxt = 'wrap_up'
             else:
                 vars['id_hint'] = _s(idc.get('explain_once_text')) + ' Then ask the same question again.'

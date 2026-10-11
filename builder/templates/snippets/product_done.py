@@ -20,7 +20,7 @@ try:
         if agreed:
             rb = []
             for row in agreed:
-                line = _s(row.get('label')) + ': ' + _amt(row.get('agreed_amount')) + ' on ' + _fmt(_d(row.get('agreed_date')))
+                line = _ph('readback_item', label=_s(row.get('label')), amount=_amt(row.get('agreed_amount')), date=_fmt(_d(row.get('agreed_date'))))
                 if _s(row.get('deadline_note')):
                     line = line + ' (' + _s(row.get('deadline_note')) + ')'
                 rb.append(line)
@@ -31,7 +31,7 @@ try:
             vars['stage'] = 'readback'
             nxt = 'readback'
         else:
-            _set_close(NEG.get('exhausted_outcome'), NEG.get('exhausted_reason'), '', 'I will leave it there for today.')
+            _set_close(NEG.get('exhausted_outcome'), NEG.get('exhausted_reason'), '', _ph('leave_today'))
     vars['pd_next'] = nxt
 except Exception as e:
     vars['pd_next'] = 'wrap_up'
