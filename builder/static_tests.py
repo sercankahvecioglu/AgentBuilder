@@ -103,10 +103,14 @@ def synthetic_products(spec: Spec, api) -> List[dict]:
     return out
 
 
+def _is_date_question(q) -> bool:
+    return "yyyy-mm-dd" in (q.answer_format or "").lower() or bool(q.numeric_date_order) or ("date" in q.api_field and "year" not in q.api_field)
+
+
 def identity_for(spec: Spec) -> Dict[str, str]:
     ident = {}
     for q in spec.identity.questions:
-        ident[q.api_field] = "1990-01-15" if "date" in q.api_field else "1234"
+        ident[q.api_field] = "1990-01-15" if _is_date_question(q) else ("1990" if "year" in q.api_field else "1234")
     return ident
 
 
@@ -123,7 +127,7 @@ def run(wf, spec, products, turns, now, faults=None, ident=None, api=None):
     vq = next((op for op in api.ops.values() if any(sch.get("enum") for f, sch in op.fields.items() if f != tv(spec.roles.customer_id_var))), None)
     hint_enum = list(((vq.response.get("hint") or {}).get("enum") or [])) if vq else []
     bank = FakeBank(ident, products, faults, max_wrong=int(tv(spec.identity.max_wrong_total)),
-                    date_fields=[k for k in ident if "date" in k or "birth" in k], swap_hint=(tv(spec.identity.swapped.hint_value) or (hint_enum[0] if hint_enum else "swapped")))
+                    date_fields=[q.api_field for q in spec.identity.questions if _is_date_question(q)], swap_hint=(tv(spec.identity.swapped.hint_value) or (hint_enum[0] if hint_enum else "swapped")))
     v = {tv(spec.roles.customer_id_var): "c_static", tv(spec.roles.now_var): now.isoformat() + "T11:00"}
     for cv in spec.call_variables:
         v.setdefault(cv.name, "x")
