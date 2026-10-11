@@ -176,6 +176,7 @@ chat/message against a practice session and dumps events, variables and the ledg
 (Track B extracted spec), `e2e-a` (full one-command build). Slots are reused; never create new ones for reruns.
 
 ## 4. Not closed (see final.md)
+- ISS-018: the sarper-dev robustness round (merged at 15:04, 0/13 on a loaded platform, reverted at 15:43) awaits a retest on a healthy platform; it is a superset of this build's fixes and may be the better agent, but it is unproven.
 - The Sunday runbook (final.md step 7) needs the user: hidden briefs in `final_inputs/`, two builds, commit, form.
 - Judge dispute ISS-009 (the mandated "This call is recorded" opening trips a literal check) is accepted, not fixed.
 - Platform filler "Bir saniye lütfen." on slow turns (ISS-003) cannot be controlled from the workflow.

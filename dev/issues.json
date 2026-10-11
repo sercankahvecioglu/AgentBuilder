@@ -208,5 +208,17 @@
     "change": "Generator restored to the tagged build 3c88f70 (no extraction on the recorded line). A transfer request voiced after the recorded line stays unhandled, as in the measured build. Own B cases and flows kept for later work."
    }
   ]
+ },
+ {
+  "id": "ISS-018",
+  "title": "sarper-dev generator (tts security questions, re-ask clones, cut-off budgets, write timeout) scored 0/13 on the platform after the merge; cause undetermined (platform load vs. workflow)",
+  "status": "open",
+  "evidence": "results/a-reps3-7.log, results/b-reps3-8.log, results/a-talkative-7.log (15:05-15:38 UTC): no events after the first customer turn; chat on slot mock with the merged build: 504 on 'Hello?'. Restored measured build on brief-a: chat answered but 45 s / 36 s per turn.",
+  "fix_history": [
+   {
+    "at": "2026-10-11 15:48 UTC",
+    "change": "Merge reverted (ea39ee4). Retest sarper-dev on a healthy platform: chat smoke first (two turns under 10 s), then A reps 1, before any slot carries it."
+   }
+  ]
  }
 ]
