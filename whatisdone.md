@@ -100,17 +100,20 @@ Written 2026-10-11 05:45 UTC by the Track A agent. Branch `sercan-dev`, 52 commi
 Track A is the half of the builder that turns `spec.json` into the Freya phone agent, tests it, saves it, and runs the
 development evaluation loop against the practice customers.
 
-## 1. Results (latest build: brief-a v5 / brief-ab v6 on the platform; v6/v7 = "paused" build on slot `mock`, measurement pending)
+## 1. Results (as of 06:05 UTC; real slots brief-a v5 / brief-ab v6; streamed-line build under test on slot `mock`)
 
 | Run | Result | Where |
 |---|---|---|
-| Brief A, reps 3 (a customer counts only at 3/3) | rep 1: 9/10, rep 2: 10/10, rep 3 running at the time of writing | `results/a-reps3-5.log` |
-| Brief B, reps 3 (previous build) | **3/3** | `results/b-reps3-3.log` (rerun pending), `results/b-reps3-1.log` |
-| Own cases for the six untested Brief A rules (dispute, human insists, day/month swapped, below floor, support accepted, not-talk twice) | **6/6** | `results/own-a-1.log` |
-| Styles at reps 1: pieces / in_words / asks_back / talkative | 10/10 / 10/10 / 9/10 / 8/10 | `results/a-*-3.log`, `results/a-*-4.log` |
-| Workflow built from Track B's real extracted spec (not the gold) | 8/10 at reps 1 before the last fixes (both misses since fixed or a judge dispute) | `results/ext-a-1.log` |
-| Full one-command build of Brief A from the brief file (extraction with the subscription backend) | 6.7 min to a saved, published, smoke-tested agent; 645 static checks, verify 0 errors | `results/e2e-a-build.log`, `submission/e2e-a.trace.txt` |
-| Local suites (seconds) | static tests 651 (A) / 708 (A+B) passed; flows 10/10, 3/3, own 6/6; raw-mock specs 564/606 passed with their own tool API | `builder/static_tests.py`, `dev/cases/flows_*.py` |
+| Brief A, reps 3 (a customer counts only at 3/3), brief-a v5 | **9/10**; the single miss is PUB-10 on the judge's literal "recorded" check (2 of 3 reps), now addressed by wording the opening "we are recording this call" | `results/a-reps3-5.log` |
+| Brief B, reps 3, brief-ab v6 | **3/3 and 3/3** on the two reps that ran (rep 3 lost to a platform 502; rerun queued) | `results/b-reps3-3.log`, `results/b-reps3-4.log` |
+| Own cases for the six untested Brief A rules | **6/6** | `results/own-a-1.log` |
+| Styles at reps 1: pieces / in_words / asks_back / talkative | 10/10 / 10/10 / **10/10** (latest build) / 6-8/10 (open, see §4) | `results/a-*-3.log`, `results/mock-asks_back-2.log`, `results/mock-talkative-*.log` |
+| Agent built from Track B's extracted Brief A spec (slot `ext-a`) | 8/10 before the last fixes (both misses since addressed) | `results/ext-a-1.log` |
+| Full one-command build of Brief A from `briefs/brief-a.md` (slot `e2e-a`) | 419 s to a saved, smoke-tested, exported agent; extraction 100% exact vs gold; **9/10** at reps 1 (same PUB-10 judge miss) | `results/e2e-a-build.log`, `results/e2e-a-1.log` |
+| Full one-command build of A+B from the brief files (slot `e2e-ab`) | 490 s; **B 3/3** at reps 1 | `results/e2e-ab-build.log`, `results/e2e-ab-1.log` |
+| Sunday runbook dry run on the raw-material mock (5 files + its own tool API, slot `final-dry`) | 521 s, exit 0, smoke passed, every fixed line in the mock's words | `results/final-dry-build.log`, `submission/final-dry.trace.txt` |
+| Reproducibility: two independent extractions of Brief A | 97.4% exact leaves identical; no number, date, enum or outcome differs | memory.md changelog 05:55 |
+| Local suites (seconds) | static tests 649 (A) / 706 (A+B) passed; flows 10/10, 3/3, own 6/6; raw-mock specs pass with their own tool API | `builder/static_tests.py`, `dev/cases/flows_*.py` |
 
 Baseline for comparison: the kit's base agent scored 0/10 on A (`dev/baselines.md`).
 
