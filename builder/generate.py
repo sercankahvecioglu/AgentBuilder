@@ -382,8 +382,8 @@ except Exception:
     def scope_parts(self) -> List[dict]:
         if not self.multi:
             return []
-        return [ev("applies_to", ["all", "current", "none"], "Based only on the latest message: all if the customer speaks about all products together (everything, all of them, both); current if about one product only; none if unclear."),
-                {"name": "product_hint", "type": "string", "min_confidence": MIN_CONF, "description": "The product the customer refers to in the latest message, in their own words (for example the card, the car loan); empty if none or if they mean all products."}]
+        return [ev("applies_to", ["all", "current", "none"], "Based only on the latest message: all ONLY if the customer gives one and the same answer for every product (everything, all of them, both, the whole lot); current if the answer is about one named product, or if the customer gives different answers for different products (then product_hint names the product the day or amount refers to); none if unclear."),
+                {"name": "product_hint", "type": "string", "min_confidence": MIN_CONF, "description": "The one product the customer's day or amount refers to in the latest message, in their own words (for example the card, the car loan); empty if none or if the same answer applies to all products. Never a whole sentence."}]
 
     # ---- prompts
     def system_prompt(self) -> str:

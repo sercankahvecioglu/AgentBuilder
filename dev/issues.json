@@ -180,5 +180,17 @@
     "change": "id_reply description: a message that contains an answer is 'none' even alongside a question; identity prompt: call the tool with the answer first, answer the question after the result."
    }
   ]
+ },
+ {
+  "id": "ISS-016",
+  "title": "B PUB-12 (1 of 3 reps): 'card tomorrow, not the loan or the car loan' extracted as applies_to=all; after the customer corrected the read-back the other two products stayed agreed and three promises were written",
+  "status": "tentatively-fixed",
+  "evidence": "results/b-reps3-4.json rep 3 PUB-12: applies_to='all' (0.97), product_hint = the whole sentence; second read-back confirmed the card only; ledger 3 promises, no notes.",
+  "fix_history": [
+   {
+    "at": "2026-10-11 06:10 UTC",
+    "change": "applies_to definition: all only for one identical answer for every product; product_hint is one product, never a sentence. readback_router: on 'changes' every agreed product returns to open before re-routing, so the others are renegotiated or noted."
+   }
+  ]
  }
 ]

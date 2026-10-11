@@ -10,11 +10,16 @@ try:
     if rb == 'confirms':
         nxt = 'promise_guard'
     elif rb == 'changes':
-        if p is not None:
-            p['status'] = 'open'
-            p['pending_amount'] = _f(p.get('agreed_amount'))
-            table[idx] = p
-            _save('products_json', table)
+        # the read-back was not accepted: every agreed product goes back to open; the named product gets the change first
+        k = 0
+        while k < len(table):
+            q = table[k]
+            if q.get('status') == 'agreed':
+                q['status'] = 'open'
+                q['pending_amount'] = _f(q.get('agreed_amount'))
+                q['deadline_note'] = ''
+            k += 1
+        _save('products_json', table)
         vars['nego_cmd'] = 'proposes'
         vars['stage'] = 'negotiation'
         nxt = 'negotiation_router'
