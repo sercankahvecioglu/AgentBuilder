@@ -113,7 +113,7 @@ def main(argv=None):
                 tr.kv("dry run", freya_io.dry_run(slot + "-dry", wf))
             except Exception as e:
                 tr.warn(f"dry run error: {str(e)[:500]}")
-            saved = freya_io.save(slot, wf)
+            saved = freya_io.save(slot, wf, log=tr.warn)
             tr.created("workflow", workflow_id=saved["workflow_id"], agent_id=saved["agent_id"], version=saved.get("version"), slot=slot,
                        nodes=len(wf["nodes"]), api_call_tools=n_tools)
             if a.skip_smoke or time.time() - t0 > TIME_GUARD_S:
@@ -131,7 +131,7 @@ def main(argv=None):
                     tr.warn(f"smoke error: {str(e)[:300]}")
             tr.section("10 export")
             path = sub / f"{slot}.workflow.json"
-            freya_io.export(saved["workflow_id"], str(path))
+            freya_io.export(saved["workflow_id"], str(path), log=tr.warn)
             tr.kv("exported", str(path))
     except Exception as e:
         status = "error"
