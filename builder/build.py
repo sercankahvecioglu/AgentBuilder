@@ -136,6 +136,13 @@ def main(argv=None):
     except Exception as e:
         status = "error"
         tr.line("ERROR " + "".join(traceback.format_exception(e))[-2000:])
+        wf_local = locals().get("wf")
+        if wf_local is not None and not saved and not a.no_save:
+            # the platform refused every save attempt: keep the generated agent in the export format so there is
+            # still a file to submit (no workflow id: it was never on the platform)
+            path = sub / f"{slot}.workflow.json"
+            path.write_text(json.dumps({"workflow_id": "", "agent_id": "", "updated_at": "", "workflow": wf_local, "note": "platform save failed; local build output"}, indent=1, ensure_ascii=False))
+            tr.line(f"FALLBACK export of the local build written to {path} (not saved on the platform)")
     tr.end(status if saved or a.no_save else "no-agent")
     if not saved and not a.no_save:
         sys.exit(2)
