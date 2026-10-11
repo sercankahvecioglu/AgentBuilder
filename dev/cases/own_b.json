@@ -239,6 +239,7 @@
    "transfer_to_agent called with queue restructuring after the recorded promise",
    "no add_note call at all",
    "the call closes as transferred"
-  ]
+  ],
+  "known_gap": "A transfer request voiced after the recorded line is not handled (ISS-017: the extraction on that node caused false transfers and was reverted). Expected ledger is the brief's; this case fails by design until a safer mechanism exists."
  }
 ]

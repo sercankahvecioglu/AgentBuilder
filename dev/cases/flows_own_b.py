@@ -10,11 +10,11 @@ R = {"set": {"pay": "refuses"}}
 FLOWS = {
     "OWN-B8-no-promise": lambda c: verified(c) + [{"node": "state_debt", "set": {"pay": "refuses"}}] + [R] * 6 + [{"node": "goodbye*"}],
     "OWN-B9-dispute-one": lambda c: verified(c) + [{"node": "state_debt", "set": {"pay": "dispute", "applies_to": "current", "product_hint": "personal loan"}},
-                                                   {"set": {"pay": "yes_today", "applies_to": "current", "product_hint": "credit card"}},
+                                                   {"set": {"pay": "yes_today", "d_ref": "today", "applies_to": "current", "product_hint": "credit card"}},
                                                    {"node": "readback", "set": {"rb": "confirms"}}, {"node": "say_recorded"}],
-    "OWN-B10-restructure-after-promise": lambda c: verified(c) + [{"node": "state_debt", "set": {"pay": "yes_today", "applies_to": "current", "product_hint": "credit card"}},
+    "OWN-B10-restructure-after-promise": lambda c: verified(c) + [{"node": "state_debt", "set": {"pay": "yes_today", "d_ref": "today", "applies_to": "current", "product_hint": "credit card"}},
                                                                   {"node": "negotiate", "set": {"pay": "wants_plan"}}, {"node": "goodbye*"}],
-    "OWN-B10b-plan-after-recorded": lambda c: verified(c) + [{"node": "state_debt", "set": {"pay": "yes_today", "applies_to": "current", "product_hint": "credit card"}},
+    "OWN-B10b-plan-after-recorded": lambda c: verified(c) + [{"node": "state_debt", "set": {"pay": "yes_today", "d_ref": "today", "applies_to": "current", "product_hint": "credit card"}},
                                                              R, R, R, {"node": "readback", "set": {"rb": "confirms"}},
                                                              {"node": "say_recorded", "set": {"pay": "wants_plan"}}, {"node": "goodbye*"}],
 }
