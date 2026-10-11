@@ -711,7 +711,9 @@ except Exception:
                 baked[rf] = r
             else:
                 omit = [rf]
-            nodes["close_" + k] = api_node("close_" + k, api_tool(self.api, cc, baked, omit=omit, post=self.hook_post_status("close_status", [], "Closed."), timeout_ms=WRITE_TIMEOUT_MS), "end_" + k, [])
+            # the close is retried once by the platform on an error: it is the last call and nothing is accepted after it,
+            # so a repeat after a success changes nothing in the ledger, while a lost close loses the whole case
+            nodes["close_" + k] = api_node("close_" + k, api_tool(self.api, cc, baked, omit=omit, post=self.hook_post_status("close_status", [], "Closed."), timeout_ms=WRITE_TIMEOUT_MS, retries=1), "end_" + k, [])
             nodes["end_" + k] = end_node("end_" + k, k)
 
         for n, cap, target in (("offer", 6, "wrap_up"), ("readback", 8, "wrap_up"), ("readback_again", 8, "wrap_up"), ("readback_llm", 8, "wrap_up"),
