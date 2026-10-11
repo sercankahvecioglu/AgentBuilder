@@ -1,6 +1,6 @@
 """Anthropic API wrapper for the builder (DEV_PLAN T3.1).
 
-Rules (memory.md C5, DEV_PLAN T3.1):
+Rules (dev/notes/memory.md C5, dev/notes/DEV_PLAN.md T3.1):
 - model claude-opus-5-5; effort set explicitly (default medium on this model, we pass it every time)
 - structured outputs through output_config.format (JSON schema from the pydantic model)
 - never send temperature, budget_tokens, a thinking budget or a forced tool_choice (400s)

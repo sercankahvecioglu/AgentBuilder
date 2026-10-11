@@ -30,6 +30,15 @@ Options: `--votes 3` (three parallel extractions, field-wise majority), `--skip-
 Pipeline: extract facts and conflicts (Claude, structured output) → resolve conflicts in code → fill the spec → verify
 against the tool API → generate the workflow with code only → static tests → save and publish → chat smoke test → export.
 
+### Repository layout (our additions)
+
+| Path | What |
+|---|---|
+| `builder/` | the builder: `build.py` (CLI), `inputs.py`, `llm.py`, `extract.py`, `resolve.py`, `vote.py`, `verify.py` (extraction), `schema.py` (spec contract), `openapi_tools.py`, `generate.py`, `templates/snippets/` (generator), `static_tests.py`, `flowsim.py`, `smoke.py`, `freya_io.py`, `trace.py` |
+| `dev/` | development material the builder never reads: `notes/` (plan, memory, guide, what is done, final runbook), `gold/` (hand-written specs), `cases/` (own cases and local flow scripts), `tests/`, `mock_briefs/`, `spikes/`, `issues.json`, `eval_extract.py`, `audit_grep.py`, `unstick.py` |
+| `submission/` | the exported workflows and traces of the final builds |
+| `out/`, `results/` | build outputs and practice-run logs (git-ignored) |
+
 ## The ten-minute start
 
 You need Python 3.10 or newer.
