@@ -136,7 +136,19 @@ class Eval:
     # ---- walking --------------------------------------------------------
     def run(self):
         self.walk(self.gold, self.cand, "")
+        self.precedence_order()
         return self
+
+    def precedence_order(self):
+        """Precedence is ordinal: every gold pair 'a before b' (strictly lower number) must hold in the candidate."""
+        g = {intent_key(o): o.get("precedence", 0) for o in self.gold.get("special_intents", []) if isinstance(o, dict)}
+        c = {intent_key(o): o.get("precedence", 0) for o in (self.cand.get("special_intents") or []) if isinstance(o, dict)}
+        bad = []
+        for a, pa in g.items():
+            for b_, pb in g.items():
+                if pa < pb and a in c and b_ in c and not (c[a] < c[b_]):
+                    bad.append(f"{a}<{b_}")
+        self.add("special_intents.precedence_order", "exact", not bad, "gold order", bad or "same order")
 
     def add(self, path, cls, ok, g, c):
         self.rows.append({"path": path, "class": cls, "ok": bool(ok), "gold": g, "got": c})
@@ -223,6 +235,8 @@ class Eval:
             return self.add(path, "exact", ok, g, c)
         if field == "key" and path.startswith("special_intents"):
             return self.add(path, "exact", intent_key({"key": g}) == intent_key({"key": c}), g, c)
+        if field == "precedence" and path.startswith("special_intents"):
+            return  # ordinal: scored once for the whole list in precedence_order()
         gs, cs = norm(g), norm(c)
         if gs == "":
             ok = cs == ""

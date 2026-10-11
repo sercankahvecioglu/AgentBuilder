@@ -1201,7 +1201,7 @@
    {
     "outcome": "paid",
     "reason": "",
-    "when": "rule 39",
+    "when": "the customer says they already paid this past-due amount",
     "fact_ids": [
      "A-S12",
      "A-R39"
@@ -1210,7 +1210,7 @@
    {
     "outcome": "transferred",
     "reason": "restructuring",
-    "when": "rule 41",
+    "when": "the customer asks for a new payment plan or lower instalments; transferred to restructuring",
     "fact_ids": [
      "A-S12",
      "A-R41"
@@ -1219,7 +1219,7 @@
    {
     "outcome": "transferred",
     "reason": "human",
-    "when": "rule 42",
+    "when": "the customer insists on a human; transferred to general",
     "fact_ids": [
      "A-S12",
      "A-R42"
@@ -1228,7 +1228,7 @@
    {
     "outcome": "transferred",
     "reason": "support",
-    "when": "rule 32",
+    "when": "hardship; the customer accepted the transfer to support",
     "fact_ids": [
      "A-S12",
      "A-R32"
@@ -1237,7 +1237,7 @@
    {
     "outcome": "no_promise",
     "reason": "refused",
-    "when": "rules 31 and 45",
+    "when": "persuasion attempts used up, or the customer said twice they do not want to talk after verification",
     "fact_ids": [
      "A-S12",
      "A-R31",
@@ -1247,7 +1247,7 @@
    {
     "outcome": "no_promise",
     "reason": "hardship",
-    "when": "rule 32",
+    "when": "hardship; the customer declined the transfer to support",
     "fact_ids": [
      "A-S12",
      "A-R32"
@@ -1256,7 +1256,7 @@
    {
     "outcome": "no_promise",
     "reason": "dispute",
-    "when": "rule 40",
+    "when": "the customer disputes the debt or the product",
     "fact_ids": [
      "A-S12",
      "A-R40"
@@ -1265,7 +1265,7 @@
    {
     "outcome": "no_promise",
     "reason": "service_error",
-    "when": "rule 37",
+    "when": "create_promise failed twice",
     "fact_ids": [
      "A-S12",
      "A-R37"
@@ -1274,7 +1274,7 @@
    {
     "outcome": "not_verified",
     "reason": "failed",
-    "when": "rule 14",
+    "when": "three wrong security answers",
     "fact_ids": [
      "A-S12",
      "A-R14"
@@ -1283,7 +1283,7 @@
    {
     "outcome": "not_verified",
     "reason": "declined",
-    "when": "rule 15",
+    "when": "the customer declined the security questions, or said twice before verification they do not want to talk",
     "fact_ids": [
      "A-S12",
      "A-R15"
@@ -1292,7 +1292,7 @@
    {
     "outcome": "not_reached",
     "reason": "callback",
-    "when": "rule 6",
+    "when": "a callback was scheduled with a third party",
     "fact_ids": [
      "A-S12",
      "A-R6"
@@ -1301,7 +1301,7 @@
    {
     "outcome": "not_reached",
     "reason": "no_callback",
-    "when": "rule 7",
+    "when": "no callback time inside the window",
     "fact_ids": [
      "A-S12",
      "A-R7"
@@ -1310,7 +1310,7 @@
    {
     "outcome": "not_reached",
     "reason": "wrong_number",
-    "when": "rule 8",
+    "when": "the number does not belong to the customer",
     "fact_ids": [
      "A-S12",
      "A-R8"
@@ -1319,7 +1319,7 @@
    {
     "outcome": "not_reached",
     "reason": "deceased",
-    "when": "rule 9",
+    "when": "the customer has died",
     "fact_ids": [
      "A-S12",
      "A-R9"
@@ -1328,7 +1328,7 @@
    {
     "outcome": "not_reached",
     "reason": "unclear",
-    "when": "rule 3",
+    "when": "the person on the line was not confirmed after the second ask",
     "fact_ids": [
      "A-S12",
      "A-R3"

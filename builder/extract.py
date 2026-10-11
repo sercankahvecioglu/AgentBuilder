@@ -119,9 +119,10 @@ of governing facts. Code will generate the agent from your output without readin
    - `multi_product.enabled` false when the documents describe one product per customer; then fill the other
      multi_product leaves with false/1/[]/"" and cite the fact that says one product.
    - `required_phrases[]`: every sentence or question the documents require verbatim (quoted wording), with the stage.
-   - `behaviour_rules[]`: one entry per agent-facing fact whose instruction is not already fully captured by a closed
-     field, with its stage. Copy the fact's `agent_instruction`. Also add one for every closed field whose rule needs
-     wording in the prompt (what to say when offering the floor, how to handle a date after the deadline, ...).
+   - `behaviour_rules[]`: one entry for EVERY governing fact with a non-empty `agent_instruction`, with its stage,
+     copying the fact's `agent_instruction` (keep required wording verbatim). Do this even when a closed field also
+     captures the rule: the closed fields drive the code, the behaviour rules drive the agent's prompts, and both are
+     needed. Merge only facts that say the same thing twice.
    - `date_conditional[]`: one entry per date-conditional pair listed under RESOLUTION, with the spec field path it
      changes, `effective_from`, and the value (JSON-encoded) that applies from that date. The main spec holds the value
      in force BEFORE that date.

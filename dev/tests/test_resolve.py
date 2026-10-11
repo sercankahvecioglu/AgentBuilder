@@ -63,12 +63,21 @@ def test_stricter_minimum_is_larger():
     assert stricter(a, b)[0].id == "F2"
 
 
-def test_auto_conflict_detection():
-    fs = [fact("F1", "19:00", doc_date="2026-01-01"), fact("F2", "18:00", doc_date="2026-02-01")]
+def test_auto_conflict_detection_across_documents():
+    fs = [fact("F1", "19:00", doc_label="policy.md", doc_date="2026-01-01"), fact("F2", "18:00", doc_label="memo.md", doc_date="2026-02-01")]
     cs = auto_conflicts(fs)
     assert len(cs) == 1 and sorted(cs[0].fact_ids) == ["F1", "F2"]
     r = resolve(Extraction(facts=fs, conflicts=[]))  # no LLM conflict list, still resolved
     assert r.governing_ids == ["F2"]
+
+
+def test_same_document_same_topic_is_not_a_conflict():
+    # the two ends of a window, or a list of accepted phrases, share a topic inside one document
+    fs = [fact("F1", "10:00", operator=">=", topic="callback_window"), fact("F2", "19:00", operator="<=", topic="callback_window"),
+          fact("F3", "yes", operator="", topic="confirm_phrases"), fact("F4", "speaking", operator="", topic="confirm_phrases")]
+    assert auto_conflicts(fs) == []
+    r = resolve(Extraction(facts=fs, conflicts=[]))
+    assert sorted(r.governing_ids) == ["F1", "F2", "F3", "F4"] and not r.unresolved
 
 
 def test_numbers_in_words_and_ordinals():

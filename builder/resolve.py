@@ -152,18 +152,28 @@ class Resolution(BaseModel):
 
 
 def auto_conflicts(facts: list[Fact]) -> list[Conflict]:
-    """Decision facts with the same topic, stage, scope and conditions but a different value."""
+    """Decision facts from DIFFERENT documents with the same topic, stage, scope, conditions and operator but a
+    different value. Within one document, same-topic facts with different values are complementary (a list of
+    examples, the two ends of a window), never a conflict; cross-document conflicts are the raw-material case (D4).
+    Conflicts inside one document can only come from the LLM's own conflict list."""
     groups: dict[tuple, list[Fact]] = {}
     for f in facts:
         if f.kind != "decision" or not f.value.strip():
             continue
-        key = (f.topic.strip().lower(), f.stage, f.scope.strip().lower(), f.conditions.strip().lower())
+        key = (f.topic.strip().lower(), f.stage, f.scope.strip().lower(), f.conditions.strip().lower(), f.operator.strip().lower())
         groups.setdefault(key, []).append(f)
     out = []
     for key, fs in groups.items():
+        docs = {(f.doc_label.strip().lower(), f.doc_date.strip()) for f in fs}
         vals = {f.value.strip().lower() for f in fs}
-        if len(vals) > 1:
-            out.append(Conflict(topic=key[0], fact_ids=[f.id for f in fs], note="auto: same topic/scope/conditions, different value"))
+        if len(vals) > 1 and len(docs) > 1:
+            # one representative per document, so a list inside one document is never split
+            per_doc: dict[tuple, Fact] = {}
+            for f in fs:
+                per_doc.setdefault((f.doc_label.strip().lower(), f.doc_date.strip()), f)
+            reps = list(per_doc.values())
+            if len({f.value.strip().lower() for f in reps}) > 1:
+                out.append(Conflict(topic=key[0], fact_ids=[f.id for f in reps], note="auto: same topic/scope/conditions/operator in different documents, different value"))
     return out
 
 
