@@ -1,0 +1,967 @@
+{
+ "initial_node": "start",
+ "system_prompt": "You are a test assistant. Speak English. One short sentence per turn. Never call a tool.",
+ "test_variables": {},
+ "global_nodes": {},
+ "nodes": {
+  "start": {
+   "name": "start",
+   "node_type": "conversation",
+   "on_enter": {
+    "type": "tts",
+    "text": "Test start. I propose Friday the sixteenth of October. Does that work?"
+   },
+   "on_enter_first_entry_only": true,
+   "task_message": "Say only: 'Noted.' No tool call is allowed in this turn.",
+   "extraction_schema": [
+    {
+     "name": "intent",
+     "type": "string",
+     "enum_values": [
+      "go",
+      "stop",
+      "none"
+     ],
+     "min_confidence": 0.6,
+     "description": "Based only on the customer's latest message: 'go' if the customer says the word go, 'stop' if the customer says the word stop, otherwise 'none'."
+    },
+    {
+     "name": "d_test",
+     "type": "date",
+     "min_confidence": 0.6,
+     "description": "The payment date the customer mentions or agrees to in the latest message."
+    },
+    {
+     "name": "amt",
+     "type": "float",
+     "min_confidence": 0.6,
+     "description": "The amount of money the customer says they will pay, as a number."
+    },
+    {
+     "name": "dob_said",
+     "type": "date",
+     "min_confidence": 0.6,
+     "description": "The date of birth the customer states, if any."
+    }
+   ],
+   "transitions": [
+    {
+     "target_node": "reset_intent",
+     "description": "intent == go",
+     "condition": {
+      "logic": "or",
+      "conditions": [
+       {
+        "variable": "intent",
+        "operator": "equals",
+        "operand": "go"
+       }
+      ]
+     }
+    },
+    {
+     "target_node": "start",
+     "description": "always",
+     "condition": {
+      "operator": "always"
+     }
+    }
+   ]
+  },
+  "reset_intent": {
+   "name": "reset_intent",
+   "node_type": "code",
+   "passthrough": true,
+   "passthrough_default_transition": "start2",
+   "on_enter": {
+    "type": "silent"
+   },
+   "disable_inactivity_monitor": true,
+   "pre_actions": [
+    {
+     "type": "function",
+     "function": {
+      "name": "code_exec",
+      "handler": "__function__:code_exec",
+      "parameters": {
+       "type": "object",
+       "properties": {
+        "code": {
+         "type": "string",
+         "default": "try:\n    vars['s4_hits'] = str(int(vars.get('s4_hits') or 0) + 1)\n    vars['s4_intent_seen'] = str(vars.get('intent'))\n    vars['intent'] = 'none'\n    vars['s9_after_conv'] = 'yes'\nexcept Exception as e:\n    vars['s4_err'] = str(e)\n"
+        },
+        "timeout_ms": {
+         "type": "number",
+         "default": 10000
+        }
+       }
+      }
+     }
+    }
+   ],
+   "transitions": [
+    {
+     "target_node": "start2",
+     "description": "always",
+     "condition": {
+      "operator": "always"
+     }
+    }
+   ]
+  },
+  "start2": {
+   "name": "start2",
+   "node_type": "conversation",
+   "on_enter": {
+    "type": "tts",
+    "text": "Reset done. I propose Friday the sixteenth of October for four hundred and twenty. Does that work?"
+   },
+   "on_enter_first_entry_only": true,
+   "task_message": "Say only: 'Noted.' No tool call is allowed in this turn.",
+   "extraction_schema": [
+    {
+     "name": "intent",
+     "type": "string",
+     "enum_values": [
+      "go",
+      "stop",
+      "none"
+     ],
+     "min_confidence": 0.6,
+     "description": "Based only on the customer's latest message: 'go' if the customer says the word go, 'stop' if the customer says the word stop, otherwise 'none'."
+    },
+    {
+     "name": "d_test",
+     "type": "date",
+     "min_confidence": 0.6,
+     "description": "The payment date the customer mentions or agrees to in the latest message."
+    },
+    {
+     "name": "amt",
+     "type": "float",
+     "min_confidence": 0.6,
+     "description": "The amount of money the customer says they will pay, as a number."
+    },
+    {
+     "name": "dob_said",
+     "type": "date",
+     "min_confidence": 0.6,
+     "description": "The date of birth the customer states, if any."
+    }
+   ],
+   "transitions": [
+    {
+     "target_node": "reset_intent",
+     "description": "intent == go",
+     "condition": {
+      "logic": "or",
+      "conditions": [
+       {
+        "variable": "intent",
+        "operator": "equals",
+        "operand": "go"
+       }
+      ]
+     }
+    },
+    {
+     "target_node": "do_verify1",
+     "description": "intent == stop",
+     "condition": {
+      "logic": "or",
+      "conditions": [
+       {
+        "variable": "intent",
+        "operator": "equals",
+        "operand": "stop"
+       }
+      ]
+     }
+    },
+    {
+     "target_node": "start2",
+     "description": "always",
+     "condition": {
+      "operator": "always"
+     }
+    }
+   ]
+  },
+  "do_verify1": {
+   "name": "do_verify1",
+   "node_type": "api_request",
+   "passthrough": true,
+   "passthrough_default_transition": "end_fail",
+   "on_enter": {
+    "type": "silent"
+   },
+   "disable_inactivity_monitor": true,
+   "pre_actions": [
+    {
+     "type": "function",
+     "config": {
+      "timeoutMs": 12000,
+      "maxRetries": 0
+     },
+     "function": {
+      "name": "verify_identity",
+      "handler": "__function__:api_call",
+      "description": "Call verify_identity.",
+      "parameters": {
+       "type": "object",
+       "properties": {
+        "url": {
+         "type": "string",
+         "default": "https://freya-bank-mock.freyavoice.workers.dev/v1/verify_identity"
+        },
+        "method": {
+         "type": "string",
+         "default": "POST"
+        },
+        "headers": {
+         "type": "object",
+         "properties": {
+          "Content-Type": {
+           "type": "string",
+           "default": "application/json"
+          }
+         }
+        },
+        "body": {
+         "type": "object",
+         "properties": {
+          "customer_id": {
+           "type": "string",
+           "default": "{{customer_id}}"
+          },
+          "field": {
+           "type": "string",
+           "default": "{{id_field1}}"
+          },
+          "answer": {
+           "type": "string",
+           "default": "{{id_answer1}}"
+          }
+         },
+         "required": [
+          "customer_id",
+          "field",
+          "answer"
+         ]
+        }
+       }
+      }
+     },
+     "pre_process_code": "import json\ntry:\n    vars['s1_pre'] = 'ran'\n    vars['s1_pre_body'] = json.dumps(config.get('body')) if isinstance(config, dict) else 'noconfig'\nexcept Exception as e:\n    vars['s1_pre'] = 'err ' + str(e)\n",
+     "post_process_code": "try:\n    if isinstance(result, dict):\n        result.pop('header', None)\n        d = result.get('data')\n        vars['s1_post'] = 'ran'\n        vars['s1_post_count'] = str(int(vars.get('s1_post_count') or 0) + 1)\n        if isinstance(d, dict):\n            vars['v_status'] = 'verified' if str(d.get('verified')).lower() == 'true' else 'wrong'\n            d['what_to_do_next'] = 'ok'\n        else:\n            vars['v_status'] = 'noresult'\nexcept Exception as e:\n    vars['v_status'] = 'hookerror'\n    vars['s1_err'] = str(e)\n"
+    }
+   ],
+   "response_mapping": [
+    {
+     "path": "data.verified",
+     "variable": "v1_mapped"
+    }
+   ],
+   "transitions": [
+    {
+     "target_node": "do_verify2",
+     "description": "v_status == verified",
+     "condition": {
+      "logic": "or",
+      "conditions": [
+       {
+        "variable": "v_status",
+        "operator": "equals",
+        "operand": "verified"
+       }
+      ]
+     }
+    },
+    {
+     "target_node": "end_fail",
+     "description": "always",
+     "condition": {
+      "operator": "always"
+     }
+    }
+   ]
+  },
+  "do_verify2": {
+   "name": "do_verify2",
+   "node_type": "api_request",
+   "passthrough": true,
+   "passthrough_default_transition": "end_fail",
+   "on_enter": {
+    "type": "silent"
+   },
+   "disable_inactivity_monitor": true,
+   "pre_actions": [
+    {
+     "type": "function",
+     "config": {
+      "timeoutMs": 12000,
+      "maxRetries": 0
+     },
+     "function": {
+      "name": "verify_identity",
+      "handler": "__function__:api_call",
+      "description": "Call verify_identity.",
+      "parameters": {
+       "type": "object",
+       "properties": {
+        "url": {
+         "type": "string",
+         "default": "https://freya-bank-mock.freyavoice.workers.dev/v1/verify_identity"
+        },
+        "method": {
+         "type": "string",
+         "default": "POST"
+        },
+        "headers": {
+         "type": "object",
+         "properties": {
+          "Content-Type": {
+           "type": "string",
+           "default": "application/json"
+          }
+         }
+        },
+        "body": {
+         "type": "object",
+         "properties": {
+          "customer_id": {
+           "type": "string",
+           "default": "{{customer_id}}"
+          },
+          "field": {
+           "type": "string",
+           "default": "{{id_field2}}"
+          },
+          "answer": {
+           "type": "string",
+           "default": "{{id_answer2}}"
+          }
+         },
+         "required": [
+          "customer_id",
+          "field",
+          "answer"
+         ]
+        }
+       }
+      }
+     },
+     "pre_process_code": "import json\ntry:\n    vars['s1_pre'] = 'ran'\n    vars['s1_pre_body'] = json.dumps(config.get('body')) if isinstance(config, dict) else 'noconfig'\nexcept Exception as e:\n    vars['s1_pre'] = 'err ' + str(e)\n",
+     "post_process_code": "try:\n    if isinstance(result, dict):\n        result.pop('header', None)\n        d = result.get('data')\n        vars['s1_post'] = 'ran'\n        vars['s1_post_count'] = str(int(vars.get('s1_post_count') or 0) + 1)\n        if isinstance(d, dict):\n            vars['v_status'] = 'verified' if str(d.get('verified')).lower() == 'true' else 'wrong'\n            d['what_to_do_next'] = 'ok'\n        else:\n            vars['v_status'] = 'noresult'\nexcept Exception as e:\n    vars['v_status'] = 'hookerror'\n    vars['s1_err'] = str(e)\n"
+    }
+   ],
+   "response_mapping": [
+    {
+     "path": "data.verified",
+     "variable": "v2_mapped"
+    }
+   ],
+   "transitions": [
+    {
+     "target_node": "load_account",
+     "description": "v_status == verified",
+     "condition": {
+      "logic": "or",
+      "conditions": [
+       {
+        "variable": "v_status",
+        "operator": "equals",
+        "operand": "verified"
+       }
+      ]
+     }
+    },
+    {
+     "target_node": "end_fail",
+     "description": "always",
+     "condition": {
+      "operator": "always"
+     }
+    }
+   ]
+  },
+  "load_account": {
+   "name": "load_account",
+   "node_type": "api_request",
+   "passthrough": true,
+   "passthrough_default_transition": "account_facts",
+   "on_enter": {
+    "type": "silent"
+   },
+   "disable_inactivity_monitor": true,
+   "pre_actions": [
+    {
+     "type": "function",
+     "config": {
+      "timeoutMs": 12000,
+      "maxRetries": 1
+     },
+     "function": {
+      "name": "get_account",
+      "handler": "__function__:api_call",
+      "description": "Call get_account.",
+      "parameters": {
+       "type": "object",
+       "properties": {
+        "url": {
+         "type": "string",
+         "default": "https://freya-bank-mock.freyavoice.workers.dev/v1/get_account"
+        },
+        "method": {
+         "type": "string",
+         "default": "POST"
+        },
+        "headers": {
+         "type": "object",
+         "properties": {
+          "Content-Type": {
+           "type": "string",
+           "default": "application/json"
+          }
+         }
+        },
+        "body": {
+         "type": "object",
+         "properties": {
+          "customer_id": {
+           "type": "string",
+           "default": "{{customer_id}}"
+          }
+         },
+         "required": [
+          "customer_id"
+         ]
+        }
+       }
+      }
+     },
+     "post_process_code": "import json\ntry:\n    if isinstance(result, dict):\n        result.pop('header', None)\n        vars['ga_post'] = 'ran'\n        d = result.get('data')\n        if isinstance(d, dict):\n            vars['ga_products_json'] = json.dumps(d.get('products'))\nexcept Exception as e:\n    vars['ga_post'] = 'err ' + str(e)\n"
+    }
+   ],
+   "response_mapping": [
+    {
+     "path": "data.products",
+     "variable": "products"
+    }
+   ],
+   "transitions": [
+    {
+     "target_node": "account_facts",
+     "description": "always",
+     "condition": {
+      "operator": "always"
+     }
+    }
+   ]
+  },
+  "account_facts": {
+   "name": "account_facts",
+   "node_type": "code",
+   "passthrough": true,
+   "passthrough_default_transition": "do_promise",
+   "on_enter": {
+    "type": "silent"
+   },
+   "disable_inactivity_monitor": true,
+   "pre_actions": [
+    {
+     "type": "function",
+     "function": {
+      "name": "code_exec",
+      "handler": "__function__:code_exec",
+      "parameters": {
+       "type": "object",
+       "properties": {
+        "code": {
+         "type": "string",
+         "default": "import json, datetime\ntry:\n    vars['s9_code_ran'] = 'yes'\n    p = vars.get('products')\n    vars['s2_type'] = type(p).__name__\n    try:\n        vars['s2_repr'] = json.dumps(p)[:400]\n    except Exception:\n        vars['s2_repr'] = str(p)[:400]\n    vars['s2_flat'] = str(vars.get('get_account_response.data.products.0.product_id'))\n    prods = None\n    if isinstance(p, list):\n        prods = p\n    elif isinstance(p, str):\n        try:\n            prods = json.loads(p)\n        except Exception:\n            prods = None\n    if not prods:\n        pj = vars.get('ga_products_json')\n        if isinstance(pj, str):\n            prods = json.loads(pj)\n    first = prods[0] if isinstance(prods, list) and prods else {}\n    vars['p_product'] = str(first.get('product_id') or vars.get('get_account_response.data.products.0.product_id') or 'p1')\n    vars['p_amount'] = float(first.get('past_due') or vars.get('get_account_response.data.products.0.past_due') or 0)\n    now = datetime.date.fromisoformat(str(vars.get('now'))[:10])\n    vars['p_date'] = (now + datetime.timedelta(days=2)).isoformat()\n    vars['attempts'] = '0'\n    vars['pr_status'] = ''\n    vars['s9_err'] = ''\nexcept Exception as e:\n    vars['s9_err'] = str(e)\n    vars['p_product'] = 'p1'\n    vars['p_amount'] = 1.0\n    vars['p_date'] = '2000-01-01'\n    vars['attempts'] = '0'\n    vars['pr_status'] = ''\n"
+        },
+        "timeout_ms": {
+         "type": "number",
+         "default": 10000
+        }
+       }
+      }
+     }
+    }
+   ],
+   "transitions": [
+    {
+     "target_node": "do_promise",
+     "description": "always",
+     "condition": {
+      "operator": "always"
+     }
+    }
+   ]
+  },
+  "do_promise": {
+   "name": "do_promise",
+   "node_type": "api_request",
+   "passthrough": true,
+   "passthrough_default_transition": "promise_retry",
+   "on_enter": {
+    "type": "silent"
+   },
+   "disable_inactivity_monitor": true,
+   "pre_actions": [
+    {
+     "type": "function",
+     "config": {
+      "timeoutMs": 12000,
+      "maxRetries": 0
+     },
+     "function": {
+      "name": "create_promise",
+      "handler": "__function__:api_call",
+      "description": "Call create_promise.",
+      "parameters": {
+       "type": "object",
+       "properties": {
+        "url": {
+         "type": "string",
+         "default": "https://freya-bank-mock.freyavoice.workers.dev/v1/create_promise"
+        },
+        "method": {
+         "type": "string",
+         "default": "POST"
+        },
+        "headers": {
+         "type": "object",
+         "properties": {
+          "Content-Type": {
+           "type": "string",
+           "default": "application/json"
+          }
+         }
+        },
+        "body": {
+         "type": "object",
+         "properties": {
+          "customer_id": {
+           "type": "string",
+           "default": "{{customer_id}}"
+          },
+          "product_id": {
+           "type": "string",
+           "default": "{{p_product}}"
+          },
+          "amount": {
+           "type": "number",
+           "default": "{{p_amount:json}}"
+          },
+          "date": {
+           "type": "string",
+           "default": "{{p_date}}"
+          }
+         },
+         "required": [
+          "customer_id",
+          "product_id",
+          "amount",
+          "date"
+         ]
+        }
+       }
+      }
+     },
+     "pre_process_code": "import json\ntry:\n    vars['pr_pre_count'] = str(int(vars.get('pr_pre_count') or 0) + 1)\n    b = config.get('body') if isinstance(config, dict) else None\n    if isinstance(b, dict) and 'amount' in b:\n        b['amount'] = float(b['amount'])\n        vars['pr_coerced'] = 'yes'\n    vars['pr_body_seen'] = json.dumps(config.get('body')) if isinstance(config, dict) else 'noconfig'\nexcept Exception as e:\n    vars['pr_pre_err'] = str(e)\n",
+     "post_process_code": "import json\ntry:\n    vars['pr_post_count'] = str(int(vars.get('pr_post_count') or 0) + 1)\n    if isinstance(result, dict):\n        result.pop('header', None)\n        vars['pr_result_keys'] = ','.join(sorted(result.keys()))\n        vars['pr_result_status'] = str(result.get('status'))\n        d = result.get('data')\n        if isinstance(d, dict) and str(d.get('ok')).lower() == 'true' and d.get('promise_id'):\n            vars['pr_status'] = 'ok'\n        else:\n            vars['pr_status'] = 'failed'\n            vars['pr_fail_data'] = str(d)[:200]\n    else:\n        vars['pr_status'] = 'failed'\n        vars['pr_result_keys'] = type(result).__name__\nexcept Exception as e:\n    vars['pr_status'] = 'failed'\n    vars['pr_post_err'] = str(e)\n"
+    }
+   ],
+   "response_mapping": [],
+   "transitions": [
+    {
+     "target_node": "say_recorded",
+     "description": "pr_status == ok",
+     "condition": {
+      "logic": "or",
+      "conditions": [
+       {
+        "variable": "pr_status",
+        "operator": "equals",
+        "operand": "ok"
+       }
+      ]
+     }
+    },
+    {
+     "target_node": "promise_retry",
+     "description": "always",
+     "condition": {
+      "operator": "always"
+     }
+    }
+   ]
+  },
+  "promise_retry": {
+   "name": "promise_retry",
+   "node_type": "code",
+   "passthrough": true,
+   "passthrough_default_transition": "goodbye_fail",
+   "on_enter": {
+    "type": "silent"
+   },
+   "disable_inactivity_monitor": true,
+   "pre_actions": [
+    {
+     "type": "function",
+     "function": {
+      "name": "code_exec",
+      "handler": "__function__:code_exec",
+      "parameters": {
+       "type": "object",
+       "properties": {
+        "code": {
+         "type": "string",
+         "default": "try:\n    a = int(vars.get('attempts') or 0) + 1\n    vars['attempts'] = str(a)\n    vars['s7_node_fc'] = str(vars.get('do_promise_failure_count'))\n    vars['s7_node_sc'] = str(vars.get('do_promise_success_count'))\n    vars['s7_tool_fc'] = str(vars.get('create_promise_failure_count'))\n    vars['s7_resp_status'] = str(vars.get('create_promise_response.status'))\n    vars['s7_resp_code'] = str(vars.get('create_promise_response.status_code'))\n    vars['s7_resp_err'] = str(vars.get('create_promise_response.error'))\n    vars['s7_pr_status_before'] = str(vars.get('pr_status'))\n    vars['pr_status'] = ''\n    vars['retry'] = 'yes' if a < 2 else 'no'\nexcept Exception as e:\n    vars['retry'] = 'no'\n    vars['s7_err'] = str(e)\n"
+        },
+        "timeout_ms": {
+         "type": "number",
+         "default": 10000
+        }
+       }
+      }
+     }
+    }
+   ],
+   "transitions": [
+    {
+     "target_node": "do_promise",
+     "description": "retry == yes",
+     "condition": {
+      "logic": "or",
+      "conditions": [
+       {
+        "variable": "retry",
+        "operator": "equals",
+        "operand": "yes"
+       }
+      ]
+     }
+    },
+    {
+     "target_node": "goodbye_fail",
+     "description": "always",
+     "condition": {
+      "operator": "always"
+     }
+    }
+   ]
+  },
+  "say_recorded": {
+   "name": "say_recorded",
+   "node_type": "conversation",
+   "on_enter": {
+    "type": "tts",
+    "text": "Your promise is recorded after {{attempts}} retries. Say bye to finish."
+   },
+   "task_message": "Say only: 'Please say bye.' No tool call is allowed in this turn.",
+   "extraction_schema": [
+    {
+     "name": "bye",
+     "type": "string",
+     "enum_values": [
+      "bye",
+      "none"
+     ],
+     "min_confidence": 0.6,
+     "description": "Based only on the customer's latest message: 'bye' if the customer says bye or goodbye, otherwise 'none'."
+    }
+   ],
+   "transitions": [
+    {
+     "target_node": "goodbye",
+     "description": "bye == bye",
+     "condition": {
+      "logic": "or",
+      "conditions": [
+       {
+        "variable": "bye",
+        "operator": "equals",
+        "operand": "bye"
+       }
+      ]
+     }
+    },
+    {
+     "target_node": "say_recorded",
+     "description": "always",
+     "condition": {
+      "operator": "always"
+     }
+    }
+   ]
+  },
+  "goodbye": {
+   "name": "goodbye",
+   "node_type": "conversation",
+   "on_enter": {
+    "type": "tts",
+    "text": "Thank you for your time and goodbye."
+   },
+   "task_message": "Say goodbye in three words. No tool call is allowed in this turn.",
+   "transitions": [
+    {
+     "target_node": "close_promise",
+     "description": "always",
+     "condition": {
+      "operator": "always"
+     }
+    }
+   ]
+  },
+  "close_promise": {
+   "name": "close_promise",
+   "node_type": "api_request",
+   "passthrough": true,
+   "passthrough_default_transition": "end_promise",
+   "on_enter": {
+    "type": "silent"
+   },
+   "disable_inactivity_monitor": true,
+   "pre_actions": [
+    {
+     "type": "function",
+     "config": {
+      "timeoutMs": 12000,
+      "maxRetries": 0
+     },
+     "function": {
+      "name": "close_call",
+      "handler": "__function__:api_call",
+      "description": "Call close_call.",
+      "parameters": {
+       "type": "object",
+       "properties": {
+        "url": {
+         "type": "string",
+         "default": "https://freya-bank-mock.freyavoice.workers.dev/v1/close_call"
+        },
+        "method": {
+         "type": "string",
+         "default": "POST"
+        },
+        "headers": {
+         "type": "object",
+         "properties": {
+          "Content-Type": {
+           "type": "string",
+           "default": "application/json"
+          }
+         }
+        },
+        "body": {
+         "type": "object",
+         "properties": {
+          "customer_id": {
+           "type": "string",
+           "default": "{{customer_id}}"
+          },
+          "outcome": {
+           "type": "string",
+           "default": "promise"
+          }
+         },
+         "required": [
+          "customer_id",
+          "outcome"
+         ]
+        }
+       }
+      }
+     },
+     "post_process_code": "try:\n    result.pop('header', None)\n    vars['close_post'] = 'ran'\nexcept Exception:\n    pass\n"
+    }
+   ],
+   "response_mapping": [],
+   "transitions": [
+    {
+     "target_node": "end_promise",
+     "description": "always",
+     "condition": {
+      "operator": "always"
+     }
+    }
+   ]
+  },
+  "end_promise": {
+   "name": "end_promise",
+   "node_type": "end_call",
+   "on_enter": {
+    "type": "silent"
+   },
+   "disable_inactivity_monitor": true,
+   "transitions": [],
+   "terminal": {
+    "type": "function",
+    "function": {
+     "name": "promise",
+     "handler": "__function__:end_call",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "message_mode": {
+        "type": "string",
+        "default": "none"
+       }
+      }
+     }
+    }
+   }
+  },
+  "goodbye_fail": {
+   "name": "goodbye_fail",
+   "node_type": "conversation",
+   "on_enter": {
+    "type": "tts",
+    "text": "I could not record the promise. Say bye to finish."
+   },
+   "task_message": "Say only: 'Please say bye.' No tool call is allowed in this turn.",
+   "extraction_schema": [
+    {
+     "name": "bye",
+     "type": "string",
+     "enum_values": [
+      "bye",
+      "none"
+     ],
+     "min_confidence": 0.6,
+     "description": "Based only on the customer's latest message: 'bye' if the customer says bye or goodbye, otherwise 'none'."
+    }
+   ],
+   "transitions": [
+    {
+     "target_node": "close_fail",
+     "description": "bye == bye",
+     "condition": {
+      "logic": "or",
+      "conditions": [
+       {
+        "variable": "bye",
+        "operator": "equals",
+        "operand": "bye"
+       }
+      ]
+     }
+    },
+    {
+     "target_node": "goodbye_fail",
+     "description": "always",
+     "condition": {
+      "operator": "always"
+     }
+    }
+   ]
+  },
+  "close_fail": {
+   "name": "close_fail",
+   "node_type": "api_request",
+   "passthrough": true,
+   "passthrough_default_transition": "end_fail",
+   "on_enter": {
+    "type": "tts",
+    "text": "Thank you and goodbye. This line is spoken by the close node."
+   },
+   "disable_inactivity_monitor": true,
+   "pre_actions": [
+    {
+     "type": "function",
+     "config": {
+      "timeoutMs": 12000,
+      "maxRetries": 0
+     },
+     "function": {
+      "name": "close_call",
+      "handler": "__function__:api_call",
+      "description": "Call close_call.",
+      "parameters": {
+       "type": "object",
+       "properties": {
+        "url": {
+         "type": "string",
+         "default": "https://freya-bank-mock.freyavoice.workers.dev/v1/close_call"
+        },
+        "method": {
+         "type": "string",
+         "default": "POST"
+        },
+        "headers": {
+         "type": "object",
+         "properties": {
+          "Content-Type": {
+           "type": "string",
+           "default": "application/json"
+          }
+         }
+        },
+        "body": {
+         "type": "object",
+         "properties": {
+          "customer_id": {
+           "type": "string",
+           "default": "{{customer_id}}"
+          },
+          "outcome": {
+           "type": "string",
+           "default": "no_promise"
+          },
+          "reason": {
+           "type": "string",
+           "default": "service_error"
+          }
+         },
+         "required": [
+          "customer_id",
+          "outcome",
+          "reason"
+         ]
+        }
+       }
+      }
+     }
+    }
+   ],
+   "response_mapping": [],
+   "transitions": [
+    {
+     "target_node": "end_fail",
+     "description": "always",
+     "condition": {
+      "operator": "always"
+     }
+    }
+   ]
+  },
+  "end_fail": {
+   "name": "end_fail",
+   "node_type": "end_call",
+   "on_enter": {
+    "type": "silent"
+   },
+   "disable_inactivity_monitor": true,
+   "transitions": [],
+   "terminal": {
+    "type": "function",
+    "function": {
+     "name": "no_promise",
+     "handler": "__function__:end_call",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "message_mode": {
+        "type": "string",
+        "default": "none"
+       }
+      }
+     }
+    }
+   }
+  }
+ }
+}

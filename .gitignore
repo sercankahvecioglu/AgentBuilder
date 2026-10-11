@@ -12,3 +12,14 @@ traces/
 
 __pycache__/
 .DS_Store
+
+# builder working artifacts
+out/
+dev/spikes/*_run*.json
+submission/mock.*
+submission/cli-test*
+dev/spikes/*_chat.json
+submission/final-dry.*
+submission/e2e-*
+submission/ext-*
+submission/brief-a*.trace.txt

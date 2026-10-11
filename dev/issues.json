@@ -1,0 +1,200 @@
+[
+ {
+  "id": "ISS-001",
+  "title": "Code-set `pay` command not seen by the next code node in the same turn (PUB-12: car loan got two proposals)",
+  "status": "tentatively-fixed",
+  "evidence": "results/mvp1-b.json PUB-12 call: product_done wrote pay=start_product and cur_idx=2; the following negotiation_router saw cur_idx=2 but pay as none, so it emitted 'Repeat your last question' and the model improvised a first car-loan proposal (Thu 15 Oct) before the real attempt-1 proposal (Fri 16 Oct). Judge: 'made two distinct attempts on the car loan'. Ledger was correct.",
+  "fix_history": [
+   {
+    "at": "2026-10-10 23:40 UTC",
+    "change": "Code never writes the extraction-owned `pay`; routers pass commands through a separate `nego_cmd` variable (readback_router, promise_guard, product_done). Verified locally (flows A 10/10, B 3/3); platform rerun pending."
+   }
+  ]
+ },
+ {
+  "id": "ISS-002",
+  "title": "Model claimed 'I have recorded your promise' before any write when moving to the next product",
+  "status": "tentatively-fixed",
+  "evidence": "Same PUB-12 call, assistant turn after the credit-card agreement. Not flagged by the judge this time; an honesty risk.",
+  "fix_history": [
+   {
+    "at": "2026-10-10 23:40 UTC",
+    "change": "The next-product hint now says to note the agreement and read everything back at the end, and not to say it is recorded."
+   }
+  ]
+ },
+ {
+  "id": "ISS-003",
+  "title": "Platform filler 'Bir saniye l\u00fctfen.' appears as an assistant message on a slow turn",
+  "status": "open",
+  "evidence": "PUB-12 call, after the state_debt turn (router chain). Not flagged by the judge. Cause: platform-side wait message on a long turn; not controlled by the workflow as far as the docs say.",
+  "fix_history": []
+ },
+ {
+  "id": "ISS-004",
+  "title": "Floor offered twice after a customer question (PUB-06 rep 1 of the reps-3 run, judge fail)",
+  "status": "tentatively-fixed",
+  "evidence": "results/a-reps3-1-rep1-recovered.json, call b0488e9b: after the floor offer the customer asked 'How much is the minimum payment?'; the resume hint said 'repeat your last proposal', the model restated the floor offer without the 'rest stays overdue' note; judge: 'offered twice, note missing'.",
+  "fix_history": [
+   {
+    "at": "2026-10-11 01:50 UTC",
+    "change": "After a question that follows a proposal, the hint says: answer briefly, then wait for the answer to the proposal; do not restate it or make a new offer."
+   }
+  ]
+ },
+ {
+  "id": "ISS-005",
+  "title": "Platform: simulation status stays 'running' after its iteration completed; blocks every later simulation",
+  "status": "open",
+  "evidence": "simulation 2d5f70e2 created 2026-10-10T23:36Z, iteration completed 23:38Z with 10 runs, status still running at 01:40Z; run_cases polled for 2 h; the queued B rerun waited behind it.",
+  "fix_history": [
+   {
+    "at": "2026-10-11 01:50 UTC",
+    "change": "Runners killed, rep 1 recovered from the iteration runs and scored (9/10). Looking for a stop/delete endpoint."
+   },
+   {
+    "at": "2026-10-11 02:25 UTC",
+    "change": "The watchdog's forced completion at 3 min cut the judge off: 7 runs of rep 2 came back 'inconclusive' (no verdict). Threshold now 20 min and only when every run has a verdict. Reps-3 result 2/10 is therefore not a measurement."
+   }
+  ]
+ },
+ {
+  "id": "ISS-006",
+  "title": "Floor offer spoken with a day ('today'); the persona refuses the day and the brief-correct re-offer on Friday reads as 'offered twice'",
+  "status": "tentatively-fixed",
+  "evidence": "reps-3 rep 2 PUB-06 call aa4842fe; in_words PUB-06.",
+  "fix_history": [
+   {
+    "at": "2026-10-11 02:25 UTC",
+    "change": "The floor is offered without a day ('Could you pay the minimum of X instead? The rest stays overdue.'); an accepted amount with no day means today."
+   }
+  ]
+ },
+ {
+  "id": "ISS-007",
+  "title": "First hardship message had no `pay` extracted; router fallback 'repeat your question' = a persuasion attempt; goodbye node asked a payment question",
+  "status": "tentatively-fixed",
+  "evidence": "reps-3 rep 3 PUB-05 call 58a67c72.",
+  "fix_history": [
+   {
+    "at": "2026-10-11 02:25 UTC",
+    "change": "pay min_confidence 0.4; empty-extraction fallback asks the customer to say it again instead of re-proposing; goodbye prompt forbids any question, proposal, amount or date."
+   }
+  ]
+ },
+ {
+  "id": "ISS-008",
+  "title": "pieces style: date given in parts never combined, model claimed the check failed without the tool (PUB-03); 'week after next' + bare 'Monday' resolved to the wrong week and a non-yes was taken as confirmation (PUB-07)",
+  "status": "tentatively-fixed",
+  "evidence": "a-pieces-1.json calls 2cc74e63 and a90a67a3.",
+  "fix_history": [
+   {
+    "at": "2026-10-11 02:25 UTC",
+    "change": "Identity prompt: combine parts, only the tool decides; d_week gains week_after_next and bare weekdays resolve inside the last vague period; read-back is a fixed tts line ending with the exact confirm question and 'confirms' needs an explicit yes."
+   }
+  ]
+ },
+ {
+  "id": "ISS-009",
+  "title": "Judge dispute: 'agent does not say recorded before a successful call' failed on the brief-mandated opening sentence 'This call is recorded'",
+  "status": "tentatively-fixed",
+  "evidence": "in_words PUB-10 call c4a387c6. Brief A rule 1 requires saying the call is recorded; the check text is the organisers' case check.",
+  "fix_history": [
+   {
+    "at": "2026-10-11 05:55 UTC",
+    "change": "Cost a guaranteed case at reps 3 (PUB-10 failed on this in 2 of 3 reps on brief-a v5 and on the extracted-spec agent). Generic wording rule added to the stage-1b guidance: a call-recording disclosure is phrased in the active voice ('we are recording this call'); 'recorded' is kept for the recorded-promise sentence. Gold first_sentence updated accordingly."
+   }
+  ]
+ },
+ {
+  "id": "ISS-010",
+  "title": "talkative style 4/10: the simulated customer's turn arrives cut off mid-sentence; the fragment is extracted as no_answer and the non-answer rule burns the attempts (also the third-party callback)",
+  "status": "accepted-platform",
+  "evidence": "results/a-talkative-3.json: PUB-10 messages 'I've been so distracted planning for my cousin'' and 'I've been so busy with work' (cut), pay=no_answer at 0.92-1.0; PUB-02 third party 'Work has been so' (cut) \u2192 no_callback.",
+  "fix_history": [
+   {
+    "at": "2026-10-11 05:30 UTC",
+    "change": "A `fragment` extraction flags cut-off turns; a non-answer (or a refusal in a cut-off turn) gets one clarification ('Sorry, I did not catch your answer. Does that work for you?') before it counts as a persuasion attempt; the third-party node re-asks up to twice when no day or time was given, without using the outside-window budget."
+   },
+   {
+    "at": "2026-10-11 05:45 UTC",
+    "change": "talkative rerun 8/10 after the fragment fix; the remaining cuts correlate with instant replies (fixed lines, fast model turns). time.sleep works in the sandbox (spike): routers now pause 3 s before the agent answers (`reply_delay_s`, skipped in local tests); identity chatter is routed through id_router (pause + listen + re-ask); turn caps with targets on every conversation node (identity 10 \u2192 close declined; negotiation 12 \u2192 product_done; goodbye 3 \u2192 close)."
+   },
+   {
+    "at": "2026-10-11 05:55 UTC",
+    "change": "The 3 s pause did not stop the cuts (turns still cut 5 s before the agent spoke): speed is not the cause. Pause removed (reply_delay_s 0). Next candidate: the engine's inactivity monitor committing a partially delivered turn; disable_inactivity_monitor is now true on every conversation node. Measuring on slot mock."
+   },
+   {
+    "at": "2026-10-11 06:12 UTC",
+    "change": "Conclusion: the talkative persona's turns are cut by the simulator independently of our agent: cuts occur after instant tts lines, after streamed model lines (12 consecutive cut turns in one identity node, PUB-01 talkative-3), with and without a reply pause, with and without the inactivity monitor. Four talkative runs scored 4, 8, 7, 6 of 10 with different cases failing each time. Our agent handles a cut turn correctly (one clarification, then the brief's non-answer rule). Streamed-line mode reverted to fixed text. No further runs on this style."
+   }
+  ]
+ },
+ {
+  "id": "ISS-011",
+  "title": "asks_back style: 'why do you need that?' during a security question counted as declining; the second question closed the call as not verified; the goodbye re-asked the question",
+  "status": "tentatively-fixed",
+  "evidence": "results/a-asks_back-3.json PUB-01/04/05: id_reply=asks_purpose for 'Why do you need that?' and 'Which account is this about?' \u2192 not_verified/declined; goodbye node asked for the phone digits again.",
+  "fix_history": [
+   {
+    "at": "2026-10-11 05:30 UTC",
+    "change": "New id_reply value asks_why (answered with the protect-your-account explanation, no count); an answered security question resets the decline count; closes decided by code now use a fixed goodbye line (goodbye_tts) so nothing is re-asked."
+   }
+  ]
+ },
+ {
+  "id": "ISS-012",
+  "title": "A question asked together with an acceptance was dropped when the next step was the fixed read-back (PUB-04 rep: 'Are you a robot? Yes, I can pay on')",
+  "status": "tentatively-fixed",
+  "evidence": "results/a-reps3-4.json PUB-04 rep 2: asks=robot_question extracted, next node readback (tts), judge: 'failed to identify as a digital assistant'.",
+  "fix_history": [
+   {
+    "at": "2026-10-11 05:30 UTC",
+    "change": "readback_llm node: the model answers the question, then reads back the exact line."
+   }
+  ]
+ },
+ {
+  "id": "ISS-013",
+  "title": "Persona glitch: the simulated customer leaked its reasoning ('thought ... Instructions: ...') into the message and hung up after two answers (asks_back PUB-03)",
+  "status": "open",
+  "evidence": "results/a-asks_back-4.json PUB-03, customer-ended-call at 8 s, slowest agent turn 1.2 s; the agent's turns were correct.",
+  "fix_history": []
+ },
+ {
+  "id": "ISS-014",
+  "title": "Platform: code sandbox returned 'did not return a parseable result' for every code node after the recorded line in one call; a recorded promise was then closed as refused (wrap_up never applied)",
+  "status": "mitigated",
+  "evidence": "results/mock-asks_back-1.json PUB-06 at 05:50 UTC; 0 of 40 other calls that night; variable table 12 KB / 300 keys, same as passing calls. PUB-08 in the same run: 'The model returned no speakable content' twice after a re-entry, customer hung up.",
+  "fix_history": [
+   {
+    "at": "2026-10-11 05:58 UTC",
+    "change": "promise_result sets close_key to the promise row (and clears the goodbye prefix) the moment a promise is recorded, so a later code failure cannot turn it into a refusal; wrap_up only refines."
+   }
+  ]
+ },
+ {
+  "id": "ISS-015",
+  "title": "asks_back PUB-03: a wrong date given together with 'what is this for?' was routed as a question and never verified, so three wrong answers counted as two and the fourth (correct) date verified",
+  "status": "tentatively-fixed",
+  "evidence": "results/mock-asks_back-1.json PUB-03 call.",
+  "fix_history": [
+   {
+    "at": "2026-10-11 05:58 UTC",
+    "change": "id_reply description: a message that contains an answer is 'none' even alongside a question; identity prompt: call the tool with the answer first, answer the question after the result."
+   }
+  ]
+ },
+ {
+  "id": "ISS-016",
+  "title": "B PUB-12 (1 of 3 reps): 'card tomorrow, not the loan or the car loan' extracted as applies_to=all; after the customer corrected the read-back the other two products stayed agreed and three promises were written",
+  "status": "tentatively-fixed",
+  "evidence": "results/b-reps3-4.json rep 3 PUB-12: applies_to='all' (0.97), product_hint = the whole sentence; second read-back confirmed the card only; ledger 3 promises, no notes.",
+  "fix_history": [
+   {
+    "at": "2026-10-11 06:10 UTC",
+    "change": "applies_to definition: all only for one identical answer for every product; product_hint is one product, never a sentence. readback_router: on 'changes' every agreed product returns to open before re-routing, so the others are renegotiated or noted."
+   }
+  ]
+ }
+]

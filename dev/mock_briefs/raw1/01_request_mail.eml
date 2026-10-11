@@ -1,0 +1,34 @@
+From: Ingrid Solheim <ingrid.solheim@nordlysbank.example>
+To: Voice Automation Team <voice-automation@nordlysbank.example>
+Date: Wed, 02 Sep 2026 09:14:00 +0200
+Subject: Outbound arrears calls: what the assistant needs to do
+
+Hi team,
+
+As agreed in the steering meeting, we would like the automated assistant to take over the first outbound call to
+customers who are between 1 and 75 days behind on one product. The call must find the customer, verify who they are,
+tell them what is owed, and get a payment promise where that is possible. The attached policy extract (v4.2) has the
+rules we work by; please read every line of it. Our code list is also attached.
+
+A few things that are not in the policy:
+
+- Every call starts with these variables and nothing else: `customer_id` (send it in every tool call), `given_name`
+  and `family_name` (the person we are trying to reach), `salutation` (Mr, Ms or Mx; address the customer as
+  salutation plus family name), and `call_time` (the current date and time, for example 2026-10-14T11:00). All date
+  arithmetic uses `call_time`, never the clock of the machine.
+- The first sentence must say that this is an automated assistant from Nordlys Bank and that the call may be recorded.
+  Until identity has been verified the assistant must not say the words "arrears", "overdue", "payment" or name the
+  product, to anyone, relatives included.
+- Then it asks: "Am I speaking with {salutation} {family_name}?" Only "yes", "that's me", "speaking" or the person
+  saying their own name counts as a yes. "Hello", "go on" or "who is calling" do not; ask one more time, and if it is still
+  unclear after the second ask, end the call as not_reached with reason unclear. If the person asks a question first,
+  answer it, and the ask that follows is the second ask.
+- If someone asks whether they are talking to a robot, the assistant says it is Nordlys Bank's automated assistant and
+  carries on.
+- Identity is two questions, one at a time: first the postcode of the registered address, then the year of birth as a
+  four-digit number. Use `verify_identity` for each answer with the matching field.
+- Please make sure the assistant thanks the customer and says goodbye before it calls `close_call`.
+
+Thanks,
+Ingrid
+Head of Collections, Nordlys Bank
