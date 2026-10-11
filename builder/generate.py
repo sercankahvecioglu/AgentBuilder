@@ -244,6 +244,7 @@ class Generator:
             # fixed-line re-asks exist when every security question and the confirmation question are ready to speak
             "id_again": all(bool(q.ask_text.strip()) and not is_instruction(q.ask_text) and "?" in q.ask_text for q in idn.questions),
             "rb_again": not is_instruction(tv(s.confirmation.confirm_question)),
+            "opening_again": not is_instruction(tv(s.opening.confirm_question)),
         }
 
     def _promise_outcome(self) -> str:
@@ -454,11 +455,17 @@ except Exception:
                     "deceased: the customer has died. asks_question: a question to the agent (who is this, is this a robot, is this a scam, what is this about). "
                     + self.intent_desc(who_keys) + " unclear: hello, go ahead or anything that does not confirm. none: nothing relevant.")
         nodes["opening"] = conv_node("opening", opening_task, [always("route_opening")],
-                                     extraction=[ev("who", who_vals, who_desc)],
+                                     extraction=[ev("who", who_vals, who_desc), self.fragment_part()],
                                      on_enter=({"type": "llm"} if first_is_instr else {"type": "tts", "text": f"{first} {confirm_q}"}), first_only=True)
+        if not is_instruction(tv(s.opening.confirm_question)):
+            # a reply that does not confirm and asks nothing: the confirmation question is asked again as a fixed line
+            nodes["opening_again"] = conv_node("opening_again", opening_task, [always("route_opening")],
+                                               extraction=nodes["opening"]["extraction_schema"],
+                                               on_enter={"type": "tts", "text": f"Sorry, I did not catch that. {confirm_q}"})
         nodes["route_opening"] = code_node("route_opening", self.snippet("route_opening"), "opening",
                                            [eq("identity_start", "opening_next", "identity_start"), eq("third_party", "opening_next", "third_party"),
-                                            eq("wrap_up", "opening_next", "wrap_up"), eq("offer", "opening_next", "offer"), eq("resume_router", "opening_next", "resume_router")])
+                                            eq("wrap_up", "opening_next", "wrap_up"), eq("offer", "opening_next", "offer"), eq("resume_router", "opening_next", "resume_router")]
+                                           + ([eq("opening_again", "opening_next", "opening_again")] if "opening_again" in nodes else []))
 
         # 2 third party
         tp = s.third_party
@@ -697,7 +704,7 @@ except Exception:
             nodes["end_" + k] = end_node("end_" + k, k)
 
         for n, cap, target in (("offer", 6, "wrap_up"), ("readback", 8, "wrap_up"), ("readback_again", 8, "wrap_up"), ("readback_llm", 8, "wrap_up"),
-                               ("goodbye", 3, "pre_close"), ("goodbye_tts", 3, "pre_close"), ("say_recorded", 3, "after_recorded"), ("opening", 6, "route_opening")):
+                               ("goodbye", 3, "pre_close"), ("goodbye_tts", 3, "pre_close"), ("say_recorded", 3, "after_recorded"), ("opening", 6, "route_opening"), ("opening_again", 6, "route_opening")):
             if n not in nodes:
                 continue
             nodes[n]["max_node_turns"] = cap
