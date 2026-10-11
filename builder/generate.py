@@ -70,6 +70,8 @@ def api_node(name: str, tool: dict, default: str, transitions: List[dict]) -> di
     }
 
 
+WRITE_TIMEOUT_MS = 25000   # a write that answers slowly is still a write; 12 s timed out on a busy bank while the record was made
+
 FIXED_LINE_MODE = "tts"   # "tts" = instant fixed line; "llm" = the model repeats the fixed line word for word (streams like any reply)
 
 
@@ -275,6 +277,8 @@ class Generator:
         for k in H['ids']:
             if ok and not d.get(k):
                 ok = False
+        if not ok and isinstance(d, dict) and 'already' in str(d.get('error') or '').lower():
+            ok = True  # the record exists (a retry after a lost response): done
         vars[H['flag']] = 'ok' if ok else 'failed'
         if isinstance(d, dict):
             d['what_to_do_next'] = H['ok'] if ok else (H['fail'] or ('Not done: ' + str(d.get('error') or 'unknown error')))
@@ -504,7 +508,7 @@ except Exception:
                 baked[f] = "{{cb_date}}"
             elif "time" in f:
                 baked[f] = "{{cb_time}}"
-        nodes["do_callback"] = api_node("do_callback", api_tool(self.api, cb_op, baked, pre=self.hook_pre_numeric(cb_op), post=self.hook_post_status("cb_status", self.api.op(cb_op).id_fields, "Callback scheduled.")),
+        nodes["do_callback"] = api_node("do_callback", api_tool(self.api, cb_op, baked, pre=self.hook_pre_numeric(cb_op), post=self.hook_post_status("cb_status", self.api.op(cb_op).id_fields, "Callback scheduled."), timeout_ms=WRITE_TIMEOUT_MS),
                                         "callback_result", [])
         nodes["callback_result"] = code_node("callback_result", self.snippet("callback_result"), "wrap_up", [])
 
@@ -644,7 +648,7 @@ except Exception:
             elif "date" in f:
                 baked[f] = "{{p_date}}"
         nodes["promise_guard"] = code_node("promise_guard", self.snippet("promise_guard"), "wrap_up", [eq("do_promise", "pg_next", "do_promise"), eq("negotiation_router", "pg_next", "negotiation_router")])
-        nodes["do_promise"] = api_node("do_promise", api_tool(self.api, cp, baked, pre=self.hook_pre_numeric(cp), post=self.hook_post_status("pr_status", self.api.op(cp).id_fields, "Promise recorded.")), "promise_result", [])
+        nodes["do_promise"] = api_node("do_promise", api_tool(self.api, cp, baked, pre=self.hook_pre_numeric(cp), post=self.hook_post_status("pr_status", self.api.op(cp).id_fields, "Promise recorded."), timeout_ms=WRITE_TIMEOUT_MS), "promise_result", [])
         nodes["promise_result"] = code_node("promise_result", self.snippet("promise_result"), "wrap_up",
                                             [eq("do_promise", "prs_next", "do_promise"), eq("promise_guard", "prs_next", "promise_guard"), eq("say_recorded", "prs_next", "say_recorded")])
         rec = s.recording
@@ -685,7 +689,7 @@ except Exception:
                 baked[f] = "{{note_reason}}"
             else:
                 omit.append(f)
-        nodes["do_note"] = api_node("do_note", api_tool(self.api, an, baked, omit=omit, post=self.hook_post_status("note_status", [], "Noted.")), "wrap_up", [])
+        nodes["do_note"] = api_node("do_note", api_tool(self.api, an, baked, omit=omit, post=self.hook_post_status("note_status", [], "Noted."), timeout_ms=WRITE_TIMEOUT_MS), "wrap_up", [])
         goodbye_task = ("This is the last thing you say in this call. {{goodbye_prefix}}\nThen, in the same turn, thank the customer for their time and say goodbye in one short sentence. "
                         "Ask no question of any kind, propose nothing, mention no amount, date or payment, and do not call any tool.")
         nodes["goodbye"] = conv_node("goodbye", goodbye_task, [always("pre_close")])
@@ -694,7 +698,7 @@ except Exception:
         nodes["pre_close"] = code_node("pre_close", self.snippet("pre_close"), "close_router", [eq("do_transfer", "pc_next", "do_transfer")])
         tr = self._op_with_fields(["queue"]) or "transfer_to_agent"
         qf = next((f for f, sch in self.api.op(tr).fields.items() if sch.get("enum") and f != self.cid), "queue")
-        nodes["do_transfer"] = api_node("do_transfer", api_tool(self.api, tr, {self.cid: "{{" + self.cid + "}}", qf: "{{transfer_queue}}"}, post=self.hook_post_status("tr_status", [], "Transferred.")), "close_router", [])
+        nodes["do_transfer"] = api_node("do_transfer", api_tool(self.api, tr, {self.cid: "{{" + self.cid + "}}", qf: "{{transfer_queue}}"}, post=self.hook_post_status("tr_status", [], "Transferred."), timeout_ms=WRITE_TIMEOUT_MS), "close_router", [])
         cc = self._op_with_fields(["outcome"]) or "close_call"
         of = next((f for f, sch in self.api.op(cc).fields.items() if sch.get("enum") and f != self.cid), "outcome")
         rf = next((f for f in self.api.op(cc).fields if f not in (self.cid, of)), "reason")
@@ -707,7 +711,7 @@ except Exception:
                 baked[rf] = r
             else:
                 omit = [rf]
-            nodes["close_" + k] = api_node("close_" + k, api_tool(self.api, cc, baked, omit=omit, post=self.hook_post_status("close_status", [], "Closed.")), "end_" + k, [])
+            nodes["close_" + k] = api_node("close_" + k, api_tool(self.api, cc, baked, omit=omit, post=self.hook_post_status("close_status", [], "Closed."), timeout_ms=WRITE_TIMEOUT_MS), "end_" + k, [])
             nodes["end_" + k] = end_node("end_" + k, k)
 
         for n, cap, target in (("offer", 6, "wrap_up"), ("readback", 8, "wrap_up"), ("readback_again", 8, "wrap_up"), ("readback_llm", 8, "wrap_up"),
