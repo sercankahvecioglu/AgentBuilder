@@ -190,7 +190,11 @@ def _structured_agent_sdk(purpose, output_model, schema, user, stable_system, in
         except Exception as e:  # noqa: BLE001 (SDK process errors)
             if trace:
                 trace.model_call(model, purpose, time.monotonic() - t0, 0, 0, None, f"error:{type(e).__name__}", effort, ok=False)
-            raise LLMError(f"{purpose}: agent sdk error {type(e).__name__}: {e}") from e
+            msg = str(e)
+            if "limit" in msg.lower() and "reset" in msg.lower():
+                raise LLMError(f"{purpose}: the Claude subscription usage limit was hit ({msg.strip()[:160]}). "
+                               "Wait for the reset, or set ANTHROPIC_API_KEY / BUILDER_BACKEND=api.") from e
+            raise LLMError(f"{purpose}: agent sdk error {type(e).__name__}: {msg}") from e
         seconds = time.monotonic() - t0
         if res is None:
             raise LLMError(f"{purpose}: agent sdk returned no result")
