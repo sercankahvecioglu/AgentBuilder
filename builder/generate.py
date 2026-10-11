@@ -229,6 +229,9 @@ class Generator:
             "date_over_deadline_use_product_deadline": bool(tv(s.multi_product.date_over_deadline_use_product_deadline_and_say_so)),
             "multi": self.multi,
             "reply_delay_s": 0.0,
+            # fixed-line re-asks exist when every security question and the confirmation question are ready to speak
+            "id_again": all(bool(q.ask_text.strip()) and not is_instruction(q.ask_text) and "?" in q.ask_text for q in idn.questions),
+            "rb_again": not is_instruction(tv(s.confirmation.confirm_question)),
         }
 
     def _promise_outcome(self) -> str:
@@ -524,9 +527,17 @@ except Exception:
             n = conv_node(f"identity_q{i}", task, trans, extraction=ex, tools=[tool], max_turns=20, cap_target="id_cap",
                           on_enter=q_enter, first_only=q_speakable)
             nodes[f"identity_q{i}"] = n
+            if self.const["id_again"]:
+                # chatter or a cut-off turn re-asks the question as a fixed line (no model call); every entry replays it
+                again = json.loads(json.dumps(n))
+                again["name"] = f"identity_q{i}_again"
+                again["on_enter"] = {"type": "tts", "text": "Sorry, I am listening. " + q.ask_text.strip()}
+                again.pop("on_enter_first_entry_only", None)
+                nodes[f"identity_q{i}_again"] = again
         # set id_node when entering each question: done through small code nodes is heavy; instead the router reads id_node set by id_router targets
         nodes["id_router"] = code_node("id_router", self.snippet("id_router"), "identity_q0",
                                        [eq(f"identity_q{i}", "id_next", f"identity_q{i}") for i in range(len(idn.questions))]
+                                       + [eq(f"identity_q{i}_again", "id_next", f"identity_q{i}_again") for i in range(len(idn.questions)) if f"identity_q{i}_again" in nodes]
                                        + [eq("wrap_up", "id_next", "wrap_up"), eq("offer", "id_next", "offer"), eq("resume_router", "id_next", "resume_router")])
         nodes["id_locked"] = code_node("id_locked", self.snippet("id_locked"), "wrap_up", [])
         nodes["id_cap"] = code_node("id_cap", self.const_text + self.prelude + "\ntry:\n    idc = CONST.get('identity') or dict()\n    _set_close(idc.get('decline_outcome'), idc.get('decline_reason'), '', 'I could not complete the security check.')\nexcept Exception:\n    pass\n", "wrap_up", [])
@@ -534,10 +545,10 @@ except Exception:
         for i in range(1, len(idn.questions)):
             nodes[f"identity_q{i}_enter"] = code_node(f"identity_q{i}_enter", self.const_text + self.prelude + f"\ntry:\n    vars['id_node'] = 'identity_q{i}'\n    vars['id_hint'] = ''\n    vars['id_reply'] = 'none'\n    _pause()\nexcept Exception:\n    pass\n", f"identity_q{i}", [])
             # re-point transitions that go to identity_q{i} from the previous question to the enter node
-            prev = nodes[f"identity_q{i - 1}"]
-            for t in prev["transitions"]:
-                if t["target_node"] == f"identity_q{i}":
-                    t["target_node"] = f"identity_q{i}_enter"
+            for pn in (f"identity_q{i - 1}", f"identity_q{i - 1}_again"):
+                for t in nodes.get(pn, {}).get("transitions", []):
+                    if t["target_node"] == f"identity_q{i}":
+                        t["target_node"] = f"identity_q{i}_enter"
 
         # 4 account
         ga = self._op_with_fields([]) or "get_account"
@@ -581,11 +592,17 @@ except Exception:
                                       on_enter=rb_tts, first_only=True,
                                       extraction=[ev("rb", rb_vals, "Based only on the customer's latest message: confirms: an explicit yes, correct, that's right or I confirm, and nothing else is changed; changes: they name another day or amount, or give a fragment of a date (set the other fields); refuses: they no longer want to promise; "
                                                      + self.intent_desc(rb_keys) + " asks_question: a question; none: unclear."), self.fragment_part()] + self.date_parts("the payment") + [self.amount_part()] + self.scope_parts())
+        if rb_tts.get("type") == "tts":
+            # an unclear or cut-off answer to the read-back: the read-back is repeated as a fixed line (no model call)
+            nodes["readback_again"] = conv_node("readback_again", rb_task, [always("readback_router")],
+                                                on_enter=fixed_line("Sorry, I did not catch that. To confirm: {{readback_text}}. " + tv(conf.confirm_question)),
+                                                extraction=nodes["readback"]["extraction_schema"])
         nodes["readback_llm"] = conv_node("readback_llm", "{{rb_hint}}\nThen, in the same turn, read the promise back exactly like this and ask the question word for word: \"To confirm: {{readback_text}}. " + tv(conf.confirm_question) + "\"\nNo tool call is allowed in this step.",
                                           [always("readback_router")], extraction=nodes["readback"]["extraction_schema"])
         nodes["negotiation_router"]["transitions"].insert(0, eq("readback_llm", "nego_next", "readback_llm"))
         nodes["readback_router"] = code_node("readback_router", self.snippet("readback_router"), "readback",
-                                             [eq("promise_guard", "rb_next", "promise_guard"), eq("negotiation_router", "rb_next", "negotiation_router")])
+                                             [eq("promise_guard", "rb_next", "promise_guard"), eq("negotiation_router", "rb_next", "negotiation_router")]
+                                             + ([eq("readback_again", "rb_next", "readback_again")] if "readback_again" in nodes else []))
 
         # 7 write loop (G2)
         cp = self._op_with_fields(["amount", "date"]) or "create_promise"
@@ -667,8 +684,10 @@ except Exception:
             nodes["close_" + k] = api_node("close_" + k, api_tool(self.api, cc, baked, omit=omit, post=self.hook_post_status("close_status", [], "Closed.")), "end_" + k, [])
             nodes["end_" + k] = end_node("end_" + k, k)
 
-        for n, cap, target in (("offer", 6, "wrap_up"), ("readback", 8, "wrap_up"), ("readback_llm", 8, "wrap_up"),
+        for n, cap, target in (("offer", 6, "wrap_up"), ("readback", 8, "wrap_up"), ("readback_again", 8, "wrap_up"), ("readback_llm", 8, "wrap_up"),
                                ("goodbye", 3, "pre_close"), ("goodbye_tts", 3, "pre_close"), ("say_recorded", 3, "after_recorded"), ("opening", 6, "route_opening")):
+            if n not in nodes:
+                continue
             nodes[n]["max_node_turns"] = cap
             nodes[n]["max_turn_transition"] = target
         wf = {

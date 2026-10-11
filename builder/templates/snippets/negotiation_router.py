@@ -217,6 +217,13 @@ try:
     if p is not None and cut_value and _i(p.get('frag_count')) < 2:
         p['frag_count'] = _i(p.get('frag_count')) + 1
         pay = '__cut__'
+    elif p is not None and frag and pay in ('no_answer', 'none', '') and amt_said <= 0 and kind == 'none' and _i(p.get('frag_nv')) < 3:
+        # a cut-off turn with nothing in it: let the customer finish, without using the non-answer budget
+        p['frag_nv'] = _i(p.get('frag_nv')) + 1
+        pay = '__cut__'
+    if p is not None and pay == 'yes_today' and _s(p.get('prop_date')) and _s(p.get('prop_date')) != today.isoformat() and kind != 'date':
+        # a plain yes while a proposal for another day is pending accepts that proposal
+        pay = 'accepts_offer'
     if p is None:
         nxt, hint = 'wrap_up', ''
     elif pay == '__cut__':

@@ -51,6 +51,8 @@ try:
             nxt = 'negotiation_router'
         else:
             vars['rb_hint'] = 'The answer was not a clear yes or no. Read the promise back again and ask for a clear yes.'
+            if CONST.get('rb_again'):
+                nxt = 'readback_again'
     vars['rb_next'] = nxt
 except Exception as e:
     vars['rb_next'] = 'readback'

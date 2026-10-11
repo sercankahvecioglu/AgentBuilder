@@ -14,6 +14,7 @@ try:
             reply = 'declines'
         else:
             vars['offer_hint'] = 'The answer was unclear. Ask only whether that was a yes or a no. Do not repeat or rephrase the offer and add nothing else.'
+            vars['offer_say'] = ''
     if reply == 'accepts':
         if it.get('action_kind') == 'transfer' and _s(it.get('action_queue')):
             vars['transfer_queue'] = _s(it.get('action_queue'))
