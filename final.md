@@ -66,9 +66,10 @@ Work the steps in order. Each has a done-check. Record numbers in `memory.md` ch
 2. If a log never gets its `exit` line and the simulation shows `running` with all calls ended for over 20 min, the watchdog releases it; if the watchdog is not running, start it.
 3. Done-check: every log has a final line. Write the four numbers into `memory.md` changelog.
 
-### Step 2: decide whether the paused build goes to the real slots
-- If `mock` talkative ≥ 8/10 and asks_back ≥ 9/10 and nothing regressed: save `out/gold/brief-a.workflow.json` to `brief-a` and `out/gold/brief-ab.workflow.json` to `brief-ab` (this is the build at commit "reply pause before fixed lines", regenerate it first with the gold builds above).
-- If talkative got worse or the Turkish filler ("Bir saniye lütfen.") appears in transcripts more than once per run, lower `reply_delay_s` in `builder/generate.py` (CONST) from 3.0 to 1.5, rebuild, save to `mock`, rerun talkative once, then decide.
+### Step 2: decide whether the latest build goes to the real slots
+State at 05:55: brief-a v5 scored A 9/10 at reps 3 (only PUB-10, the judge's "recorded" trap, failed and only in 2 of 3 reps); the extracted-spec agent `e2e-a` scored 9/10 with the same single miss. The 3 s reply pause did NOT stop the talkative cut-offs (turns were still cut 5 s before the agent spoke) and was removed. The build now on slot `mock` (commit "[xtrack] 1b guidance: recording disclosure...") has instead: inactivity monitor off on every conversation node, the opening sentence phrased "We are recording this call" (generic 1b rule: active voice for the recording disclosure, "recorded" reserved for the promise), and a router fix (an acceptance after two non-answers no longer lands in the model node with an empty instruction). A talkative run on `mock` is queued as `results/mock-talkative-2.log`.
+- If `mock` talkative-2 ≥ 8/10 with no transcript cut mid-sentence after the agent's turn, and asks_back ≥ 9/10: save `out/gold/brief-a.workflow.json` to `brief-a` and `out/gold/brief-ab.workflow.json` to `brief-ab`, then run A reps 3 and B reps 3 on them (step 3).
+- If customer turns are still cut: this is a platform or persona artefact (ISS-010), not ours. Keep the build (it loses nothing), log the evidence, and stop spending runs on talkative.
 - Done-check: `.freya-agents.json` shows a new version for both slots and `git log` has the commit that produced it.
 
 ### Step 3: fix loop until the targets hold on the real slots
