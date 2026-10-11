@@ -32,8 +32,12 @@ def prepare_docs(files: list[str], api_path: str, out_dir: pathlib.Path) -> path
     docs.mkdir(parents=True)
     for i, p in enumerate(files):
         name = os.path.basename(p)
+        if name.lower().endswith((".js", ".toml", ".ts")):
+            continue  # a worker example or config, not a document about the calls
         try:
             text = read_document(p)
+            if len(text) > 200_000:
+                text = text[:200_000] + "\n\n[... truncated: the file is too long to read whole; the mock serves its contents ...]"
         except Exception as e:  # noqa: BLE001
             text = f"[could not read this file: {type(e).__name__}: {e}]"
         (docs / f"{i + 1:02d}_{name}.txt").write_text(text, encoding="utf-8")

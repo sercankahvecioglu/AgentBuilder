@@ -1,11 +1,11 @@
-# Final-case mock of the bank's services (Cloudflare Workers)
+# Mock of Freya Bank's voice services (final case), on Cloudflare Workers
 
-`src/index.js` (state in a Durable Object per customer) serves the bank's tools under `/v1/<tool>` (POST, JSON), its own OpenAPI file at `/openapi.json`
-(the builder reads it: `python3 builder/build.py <case_folder> https://<worker>.workers.dev`), and practice
-endpoints for `tools/run_cases.py` (`POST /v1/practice/sessions`, `GET /v1/practice/ledger/<customer_id>`).
+`src/index.js` serves the seven services of the bank's service contract under `/voice/v1/<service>` (POST, JSON),
+with exactly the answers of `test-environment/test-customers.json` (status code and body, `delaySeconds` honoured,
+contract error bodies for anything not in the file), plus `GET /openapi.json` for the builder and `GET /health`.
+Requests may use the contract envelope `{"data": {...}, "call": {...}}` or the flat fields.
 
-`src/contract.js` holds everything that comes from the case's service contract and test customers: tool names,
-fields, enums, the test customers. Edit that file only.
+`src/data.js` is generated: `python3 mock/build_data.py <case_folder>/test-environment/test-customers.json`.
 
-Deploy: `wrangler login` once, `then
-`wrangler deploy`. Keep it deployed until the results are out.
+Deploy: `wrangler login` once, then `wrangler deploy` (URL: https://freya-final-mock.sarperkahvecioglu1.workers.dev).
+Keep it deployed until the results are out.

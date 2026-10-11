@@ -1,219 +1,183 @@
-// Team mock of the bank's services for the final case. Generic engine; the contract lives in contract.js.
-//   POST <base_path>/<tool>            the tools the phone agent calls (JSON body, JSON reply)
-//   GET  /openapi.json                 the tool API the builder reads
-//   POST <base_path>/practice/sessions {case} -> {variables}   a fresh customer for a test run (tools/run_cases.py)
-//   GET  <base_path>/practice/ledger/<customer_id>             what was recorded
-// State: one Durable Object per customer_id (strongly consistent).
-import { BANK, TOOLS, PRODUCTS_FIELD, CUSTOMERS } from "./contract.js";
+// Team mock of Freya Bank's voice services for the final case (Cloudflare Worker, stateless).
+// Same paths, field names and shapes as the bank's service contract; for the test customers it returns exactly the
+// answers in test-customers.json (status code and body), per the lookup rules in test-customers.md.
+//   POST /voice/v1/<service>     the seven services (JSON in, JSON out)
+//   GET  /openapi.json           the tool API the builder reads
+//   GET  /health
+import { DATA } from "./data.js";
 
-const JSON_HEADERS = { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" };
-const reply = (obj, status = 200) => new Response(JSON.stringify(obj), { status, headers: JSON_HEADERS });
+const BASE = "/voice/v1";
+const SERVICES = ["cards.list", "cards.balance", "statement.week.get", "statement.week.decide", "statement.week.change", "contact.email.get", "statement.pdf.send"];
+const CORS = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "GET, POST, OPTIONS", "Access-Control-Allow-Headers": "*" };
 
-export default {
-  async fetch(request, env) {
-    const url = new URL(request.url);
-    const path = url.pathname.replace(/\/+$/, "");
-    const base = BANK.base_path.replace(/\/+$/, "");
-    try {
-      if (request.method === "OPTIONS") return new Response("", { headers: JSON_HEADERS });
-      if (path === "/openapi.json" || path === base + "/openapi.json") return reply(openapi(url.origin));
-      if (path === "" || path === "/") return reply({ ok: true, service: BANK.title, openapi: url.origin + "/openapi.json" });
-      if (path === base + "/practice/sessions" && request.method === "POST") return await newSession(request, env);
-      const m = path.match(new RegExp("^" + base + "/practice/ledger/([^/]+)$"));
-      if (m && request.method === "GET") return reply(await ledgerOf(env, decodeURIComponent(m[1])));
-      if (path.startsWith(base + "/") && request.method === "POST") {
-        const name = path.slice(base.length + 1);
-        const tool = TOOLS.find((t) => t.name === name);
-        if (!tool) return reply({ ok: false, error: "unknown tool " + name }, 404);
-        let body;
-        try { body = await request.json(); } catch { return reply({ ok: false, error: "body must be JSON" }, 400); }
-        return await callTool(env, tool, body || {});
-      }
-      return reply({ ok: false, error: "not found" }, 404);
-    } catch (e) {
-      return reply({ ok: false, error: "mock error: " + (e && e.message ? e.message : String(e)) }, 500);
-    }
-  },
+function json(body, status = 200) {
+  return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json; charset=utf-8", ...CORS } });
+}
+
+let guidCounter = 0;
+function guid() {
+  guidCounter = (guidCounter + 1) % 65536;
+  return "f0e1d2c3b4a5968778695a4b3c2d" + guidCounter.toString(16).padStart(4, "0");
+}
+
+// Error bodies exactly as in section 4 of the contract.
+function errorBody(code, message, type, rootCause) {
+  const g = guid();
+  return { result: { guid: g, returnCode: code, messageText: message, code, message, type, details: { guid: g, rootCause, errorOrigin: "ivr-gateway-test:ivr-channel-v0" } } };
+}
+const ERR = {
+  invalid: (field) => json(errorBody("INVALID_ARGUMENTS_ERROR", `${field} cannot be empty`, "ERROR", "InvalidArgumentsException"), 400),
+  noCards: () => json(errorBody("FB_IVR_CHANNEL_102", "Müşteriye ait geçerli kart bilgisi bulunamadı.", "WARNING", "NotFoundException"), 404),
+  balanceNotFound: () => json(errorBody("FB_IVR_CHANNEL_120", "Kart bakiye servisi hatası: kart bulunamadı", "WARNING", "NotFoundException"), 404),
+  weekNotFound: () => json(errorBody("FB_IVR_CHANNEL_121", "Ekstre haftası servisi hatası: kart bulunamadı", "WARNING", "NotFoundException"), 404),
+  pdfNotFound: () => json(errorBody("FB_IVR_CHANNEL_107", "Pdf dokümanı bulunamadı", "WARNING", "com.freyabank.ivrgateway.ivrchannel.rest.exception.NotFoundException"), 404),
+  technical: () => json(errorBody("FBE00099", "Teknik hata: ABORTED: ", "ERROR", "TechnicalError"), 500),
 };
 
-// ---------------------------------------------------------------- state (one Durable Object per customer)
-export class Customer {
-  constructor(state) { this.state = state; }
-  async fetch(request) {
-    const url = new URL(request.url);
-    if (url.pathname === "/load") {
-      const st = await this.state.storage.get("st");
-      return new Response(JSON.stringify(st || null), { headers: JSON_HEADERS });
+function isTemplate(v) { return typeof v === "string" && (v.startsWith("{{") || v.startsWith("%7B%7B")); }
+const norm = (v) => (v === undefined || v === null ? "" : String(v).trim());
+
+// The request may come as the contract envelope {data:{...}, call:{...}} or as the flat fields (what a phone-platform
+// tool with leaf parameters sends); both are read the same way.
+function fields(body) {
+  if (body && typeof body === "object" && body.data && typeof body.data === "object") return body.data;
+  return body || {};
+}
+
+function customerByNo(no) {
+  const key = norm(no);
+  return DATA.customers.find((c) => norm(c.customerNo) === key) || null;
+}
+function entriesByCard(service, cardNumber) {
+  const key = norm(cardNumber);
+  for (const c of DATA.customers) {
+    const s = (c.services || {})[service];
+    if (s && typeof s === "object" && Object.prototype.hasOwnProperty.call(s, key)) return s[key];
+  }
+  return null;
+}
+
+async function answer(entry) {
+  if (!entry || typeof entry.http !== "number") return null;
+  if (entry.delaySeconds) await new Promise((r) => setTimeout(r, Math.min(Number(entry.delaySeconds) || 0, 25) * 1000));
+  return json(entry.response, entry.http);
+}
+
+async function serve(service, body) {
+  const f = fields(body);
+  const firstCustomer = DATA.customers[0];
+  switch (service) {
+    case "cards.list": {
+      if (isTemplate(f.customerNo)) return await answer(firstCustomer.services["cards.list"]);
+      if (!norm(f.customerNo)) return ERR.invalid("customerNo");
+      const c = customerByNo(f.customerNo);
+      const r = c && (await answer(c.services["cards.list"]));
+      return r || ERR.noCards();
     }
-    if (url.pathname === "/save") {
-      const st = await request.json();
-      await this.state.storage.put("st", st);
-      return new Response("{}", { headers: JSON_HEADERS });
+    case "cards.balance": {
+      if (isTemplate(f.cardNumber)) return await answer(Object.values(firstCustomer.services["cards.balance"])[0]);
+      if (!norm(f.cardNumber)) return ERR.invalid("card number");
+      const r = await answer(entriesByCard("cards.balance", f.cardNumber));
+      return r || ERR.balanceNotFound();
     }
-    return new Response("not found", { status: 404 });
-  }
-}
-function stubOf(env, cid) { return env.CUSTOMER.get(env.CUSTOMER.idFromName(String(cid))); }
-async function load(env, cid) {
-  const r = await stubOf(env, cid).fetch("https://do/load");
-  return await r.json();
-}
-async function save(env, st) {
-  await stubOf(env, st.customer_id).fetch("https://do/save", { method: "POST", body: JSON.stringify(st) });
-}
-function freshState(cid, cust, caseId) {
-  return {
-    customer_id: cid, case: caseId || "", identity: cust.identity || {}, products: JSON.parse(JSON.stringify(cust.products || [])),
-    faults: JSON.parse(JSON.stringify(cust.faults || {})), verified: {}, wrong: 0, closed: false,
-    outcome: null, reason: null, promises: [], notes: [], callbacks: [], transfers: [], calls: [], created: new Date().toISOString(),
-  };
-}
-
-async function newSession(request, env) {
-  let body = {};
-  try { body = await request.json(); } catch {}
-  const caseId = body.case || Object.keys(CUSTOMERS)[0];
-  const cust = CUSTOMERS[caseId];
-  if (!cust) return reply({ ok: false, error: "unknown case " + caseId }, 404);
-  const cid = "c_" + crypto.randomUUID().replace(/-/g, "").slice(0, 12);
-  const st = freshState(cid, cust, caseId);
-  await save(env, st);
-  return reply({ ok: true, variables: { customer_id: cid, ...(cust.variables || {}) } });
-}
-
-async function ledgerOf(env, cid) {
-  const st = await load(env, cid);
-  if (!st) return { ok: false, error: "unknown customer" };
-  return { ok: true, customer_id: cid, case: st.case, outcome: st.outcome, reason: st.reason, promises: st.promises, notes: st.notes,
-           callbacks: st.callbacks, transfers: st.transfers, calls: st.calls, closed: st.closed };
-}
-
-// ---------------------------------------------------------------- tools
-async function callTool(env, tool, body) {
-  const cid = body.customer_id;
-  if (!cid) return reply({ ok: false, error: "customer_id is required" }, 400);
-  let st = await load(env, cid);
-  if (!st) {
-    // an unknown customer id (e.g. the platform's test call): a default customer so the call can proceed
-    const first = Object.values(CUSTOMERS)[0];
-    st = freshState(cid, first, "default");
-  }
-  const log = (result) => { st.calls.push({ tool: tool.name, args: body, result: result, at: new Date().toISOString() }); };
-  const done = async (result, status = 200) => { log(result); await save(env, st); return reply(result, status); };
-
-  // required fields
-  for (const [f, spec] of Object.entries(tool.fields || {})) {
-    if (spec.required && (body[f] === undefined || body[f] === null || body[f] === "")) return await done({ ok: false, error: `${f} is required` });
-    if (spec.enum && body[f] !== undefined && body[f] !== "" && !spec.enum.includes(String(body[f]))) return await done({ ok: false, error: `${f} must be one of ${spec.enum.join(", ")}` });
-  }
-  if (st.closed) return await done({ ok: false, error: BANK.closed_error });
-
-  // injected faults (fail the first n calls of a tool with a 500, like the practice bank)
-  const fault = st.faults && st.faults[tool.name];
-  if (fault && fault.fail_first_n > 0) {
-    fault.fail_first_n -= 1;
-    log({ ok: false, error: "service unavailable, nothing was recorded" });
-    await save(env, st);
-    return reply({ ok: false, error: "service unavailable, nothing was recorded" }, 500);
-  }
-
-  const allVerified = () => Object.keys(BANK.identity_fields).every((f) => st.verified[f]);
-  switch (tool.kind) {
-    case "verify_identity": {
-      const field = String(body.field || ""), answer = String(body.answer || "").trim();
-      const kind = BANK.identity_fields[field];
-      if (!kind) return await done({ ok: false, error: "unknown field" });
-      const expected = String(st.identity[field] || "").trim();
-      const left = () => Math.max(0, BANK.max_wrong_answers - st.wrong);
-      if (st.wrong >= BANK.max_wrong_answers) return await done({ ok: false, error: "no attempts left", verified: false, wrong_answers_left: 0, all_verified: false });
-      if (kind === "date") {
-        if (!/^\d{4}-\d{2}-\d{2}$/.test(answer)) return await done({ ok: false, error: "answer must be a date YYYY-MM-DD", verified: false, wrong_answers_left: left(), all_verified: allVerified() });
-        if (answer === expected) { st.verified[field] = true; return await done({ ok: true, verified: true, wrong_answers_left: left(), all_verified: allVerified() }); }
-        const [y, m, d] = expected.split("-");
-        if (BANK.swapped_hint && answer === `${y}-${d}-${m}`) return await done({ ok: true, verified: false, wrong_answers_left: left(), all_verified: allVerified(), hint: BANK.swapped_hint });
-      } else if (answer.toLowerCase().replace(/\s+/g, "") === expected.toLowerCase().replace(/\s+/g, "")) {
-        st.verified[field] = true; return await done({ ok: true, verified: true, wrong_answers_left: left(), all_verified: allVerified() });
+    case "statement.week.get": {
+      if (isTemplate(f.cardNumber)) return await answer(Object.values(firstCustomer.services["statement.week.get"])[0]);
+      if (!norm(f.cardNumber)) return ERR.invalid("card number");
+      const r = await answer(entriesByCard("statement.week.get", f.cardNumber));
+      return r || ERR.weekNotFound();
+    }
+    case "statement.week.decide":
+    case "statement.week.change": {
+      if (!norm(f.cardNumber) || isTemplate(f.cardNumber)) return isTemplate(f.cardNumber) ? ERR.invalid("newStatementWeek") : ERR.invalid("card number");
+      if (!norm(f.newStatementWeek)) return ERR.invalid("newStatementWeek");
+      if (!norm(f.statementDay) && f.statementDay !== 0) return ERR.invalid("statementDay");
+      const byWeek = entriesByCard(service, f.cardNumber);
+      const r = byWeek && (await answer(byWeek[norm(f.newStatementWeek)]));
+      return r || ERR.invalid("newStatementWeek");
+    }
+    case "contact.email.get": {
+      if (isTemplate(f.customerNo)) return await answer(firstCustomer.services["contact.email.get"]);
+      if (!norm(f.customerNo)) return ERR.invalid("customerNo");
+      if (!norm(f.intAddressInfoType)) return ERR.invalid("intAddressInfoType");
+      const c = customerByNo(f.customerNo);
+      const r = c && (await answer(c.services["contact.email.get"]));
+      return r || ERR.invalid("customerNo");
+    }
+    case "statement.pdf.send": {
+      if (isTemplate(f.customerNo)) return await answer(firstCustomer.services["statement.pdf.send"]);
+      for (const k of ["customerNo", "cardNumber", "currencyType", "statementDate", "emailAddress"]) {
+        if (!norm(f[k])) return ERR.invalid(k);
       }
-      st.wrong += 1;
-      return await done({ ok: true, verified: false, wrong_answers_left: left(), all_verified: allVerified() });
-    }
-    case "get_account": {
-      if (!allVerified()) return await done({ ok: false, error: BANK.not_verified_error });
-      return await done({ ok: true, [PRODUCTS_FIELD]: st.products });
-    }
-    case "create_promise": {
-      if (!allVerified()) return await done({ ok: false, error: BANK.not_verified_error });
-      const pid = String(body.product_id || "");
-      if (!st.products.some((p) => String(p.product_id) === pid)) return await done({ ok: false, error: "unknown product_id" });
-      if (st.promises.some((p) => p.product_id === pid)) return await done({ ok: false, error: "this product already has a promise" });
-      const amount = Number(body.amount);
-      if (!(amount > 0)) return await done({ ok: false, error: "amount must be a positive number" });
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(String(body.date || ""))) return await done({ ok: false, error: "date must be YYYY-MM-DD" });
-      const promise_id = "pr" + (st.promises.length + 1);
-      const prod = st.products.find((p) => String(p.product_id) === pid);
-      st.promises.push({ promise_id, product_id: pid, type: prod.type, amount, date: body.date });
-      return await done({ ok: true, promise_id });
-    }
-    case "add_note": {
-      st.notes.push({ product_id: String(body.product_id || ""), reason: String(body.reason || ""), text: String(body.text || "") });
-      return await done({ ok: true });
-    }
-    case "schedule_callback": {
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(String(body.date || ""))) return await done({ ok: false, error: "date must be YYYY-MM-DD" });
-      if (!/^\d{2}:\d{2}$/.test(String(body.time || ""))) return await done({ ok: false, error: "time must be HH:MM" });
-      st.callbacks.push({ date: body.date, time: body.time });
-      return await done({ ok: true });
-    }
-    case "transfer_to_agent": {
-      st.transfers.push({ queue: String(body.queue || "") });
-      return await done({ ok: true });
-    }
-    case "close_call": {
-      st.outcome = String(body.outcome || "");
-      st.reason = body.reason === undefined || body.reason === null || body.reason === "" ? null : String(body.reason);
-      st.closed = true;
-      return await done({ ok: true });
+      const c = customerByNo(f.customerNo);
+      const r = c && (await answer(c.services["statement.pdf.send"]));
+      return r || ERR.pdfNotFound();
     }
     default:
-      return await done({ ok: false, error: "tool kind not implemented: " + tool.kind });
+      return json({ error: "unknown service" }, 404);
   }
 }
 
-// ---------------------------------------------------------------- OpenAPI (what the builder reads)
+// ---------------------------------------------------------------- OpenAPI for the builder
 function openapi(origin) {
-  const paths = {};
-  for (const t of TOOLS) {
-    const properties = {};
-    const required = [];
-    for (const [f, spec] of Object.entries(t.fields || {})) {
-      const leaf = { type: spec.type || "string" };
-      if (spec.enum) leaf.enum = spec.enum;
-      if (spec.format) leaf.format = spec.format;
-      if (spec.description) leaf.description = spec.description;
-      properties[f] = leaf;
-      if (spec.required) required.push(f);
-    }
-    const resp = {};
-    for (const [k, v] of Object.entries(t.response || {})) {
-      if (Array.isArray(v)) resp[k] = { type: "string", enum: v };
-      else if (v === "array" && k === PRODUCTS_FIELD) resp[k] = { type: "array", items: { type: "object", properties: productProps() } };
-      else resp[k] = { type: v };
-    }
-    paths["/" + t.name] = { post: { operationId: t.name, summary: t.summary || t.name,
-      requestBody: { required: true, content: { "application/json": { schema: { type: "object", properties, required } } } },
-      responses: { "200": { description: "Result", content: { "application/json": { schema: { type: "object", properties: resp } } } },
-                   "500": { description: "The service failed; nothing was recorded. The call may be repeated." } } } };
-  }
-  return { openapi: "3.0.3", info: { title: BANK.title, version: "1.0" }, servers: [{ url: origin + BANK.base_path }], paths };
+  const str = (d) => ({ type: "string", description: d });
+  const req = (props, required) => ({ required: true, content: { "application/json": { schema: { type: "object", properties: props, required } } } });
+  const envelope = "Also accepted as the contract envelope {\"data\": {...fields...}, \"call\": {\"ani\": \"...\", \"lang\": \"tr\"}}.";
+  const resultProps = { guid: { type: "string" }, returnCode: { type: "string", description: "\"1\" on success; an error code otherwise" }, messageText: { type: "string" }, code: { type: "string" }, message: { type: "string" }, type: { type: "string", description: "null, \"ERROR\" or \"WARNING\"" } };
+  const debtBlock = { type: "object", description: "May be absent for a currency the card does not have (not the same as NO_DEBT)", properties: {
+    statementPaymentStatus: { type: "string", enum: ["HAS_DEBT", "NO_DEBT"] }, transferAmount: { type: "number" }, statementDebt: { type: "number" }, minPayment: { type: "number" },
+    remainingDebt: { type: "number" }, remainingMinPayment: { type: "number" }, currentPeriodExpense: { type: "number" }, totalDebt: { type: "number", description: "can be negative (credit balance)" },
+    totalDebtPaymentStatus: { type: "string", enum: ["HAS_DEBT", "NO_DEBT"] }, remainAutomaticPaymentAmount: { type: "number" } } };
+  const resp = (dataProps, desc) => ({ "200": { description: desc || "Success: result.returnCode is \"1\" and data is present", content: { "application/json": { schema: { type: "object", properties: { data: { type: "object", properties: dataProps }, result: { type: "object", properties: resultProps } } } } } },
+    "400": { description: "INVALID_ARGUMENTS_ERROR: a required field is missing or empty (no data object)" },
+    "404": { description: "WARNING code (FB_IVR_CHANNEL_1xx): not found / nothing to do (no data object)" },
+    "500": { description: "FBE00099 technical error (no data object)" } });
+  const card = { type: "object", properties: { cardNumber: str("masked card number; send it back exactly as received"), cardNumberLast4: { type: "string" }, productName: str("free text, may be empty"), status: { type: "string", enum: ["A"] }, isMainCard: { type: "boolean" } } };
+  const paths = {
+    "/cards.list": { post: { operationId: "cards.list", summary: "The customer's eligible credit cards (active). 404 FB_IVR_CHANNEL_102 when the customer has no valid card. " + envelope,
+      requestBody: req({ customerNo: str("8-digit customer number (string or number)"), aiFlow: { type: "string", default: "CardOps", description: "use case id, \"CardOps\"" } }, ["customerNo"]),
+      responses: resp({ cards: { type: "array", items: card }, validCardsCount: { type: "integer" }, exitState: { type: "string", enum: ["1_CARD", "MULTI_CARD"] } }) } },
+    "/cards.balance": { post: { operationId: "cards.balance", summary: "Statement dates, due dates and debt per currency of one card. 404 FB_IVR_CHANNEL_120 card not found. " + envelope,
+      requestBody: req({ cardNumber: str("the cardNumber exactly as cards.list returned it") }, ["cardNumber"]),
+      responses: resp({ cardNumber: { type: "string" }, cardNumberLast4: { type: "string" }, productName: { type: "string" }, statementDate: str("dd.MM.yyyy, the issued statement"), lastPayDate: str("dd.MM.yyyy, its due date"), nextStatementDate: str("dd.MM.yyyy"), nextLastPayDate: str("dd.MM.yyyy"),
+        debtTL: debtBlock, debtUSD: debtBlock, debtEUR: debtBlock, debtGBP: debtBlock, statementPaymentStatus: { type: "string", enum: ["HAS_DEBT", "NO_DEBT"] }, totalDebtPaymentStatus: { type: "string", enum: ["HAS_DEBT", "NO_DEBT"] }, automaticPaymentFlag: { type: "string", enum: ["Y", "N"] } }) } },
+    "/statement.week.get": { post: { operationId: "statement.week.get", summary: "The card's current statement week and day, next dates, joint-statement relation. 404 FB_IVR_CHANNEL_121 card not found. " + envelope,
+      requestBody: req({ cardNumber: str("the cardNumber exactly as cards.list returned it") }, ["cardNumber"]),
+      responses: resp({ cardNumber: { type: "string" }, cardNumberLast4: { type: "string" }, productName: { type: "string" }, statementWeek: { type: "integer", description: "1-4" }, statementDay: { type: "integer" }, statementDate: { type: "string" }, lastPayDate: { type: "string" }, nextStatementDate: { type: "string" }, nextLastPayDate: { type: "string" },
+        relationType: { type: "string", enum: ["", "M", "C"], description: "empty = own statement; M = main card of a shared statement; C = linked card" }, relatedCardNumber: { type: "string" }, relatedCardProductName: { type: "string" } }) } },
+    "/statement.week.decide": { post: { operationId: "statement.week.decide", summary: "Preview only: the statement date, due date and day the card would get with the requested week; changes nothing. Do not call it for the card's current week (error). " + envelope,
+      requestBody: req({ cardNumber: str("the cardNumber exactly as cards.list returned it"), newStatementWeek: str("1-4 (number or string)"), statementDay: str("the card's current statementDay from statement.week.get") }, ["cardNumber", "newStatementWeek", "statementDay"]),
+      responses: resp({ statementDate: str("dd.MM.yyyy, first statement under the requested week"), statementDueDate: str("dd.MM.yyyy, its due date"), statementDay: { type: "integer" }, responseCode: { type: "integer", description: "0 = fine" }, responseMessage: { type: "string" } }) } },
+    "/statement.week.change": { post: { operationId: "statement.week.change", summary: "Changes the card's statement week (side effect; only after the caller agreed to the preview dates). Success = exitState OK and responseCode 0. " + envelope,
+      requestBody: req({ cardNumber: str("the cardNumber exactly as cards.list returned it"), newStatementWeek: str("1-4"), statementDay: str("the card's current statementDay from statement.week.get") }, ["cardNumber", "newStatementWeek", "statementDay"]),
+      responses: resp({ responseCode: { type: "integer" }, responseMessage: { type: "string" }, statementWeek: { type: "string" }, statementDay: { type: "string", description: "ignore; tell the caller the dates from the preview" }, exitState: { type: "string", enum: ["OK"] } }) } },
+    "/contact.email.get": { post: { operationId: "contact.email.get", summary: "Registered e-mail / phone of the customer. The registered e-mail is ibanEmail (empty = none). " + envelope,
+      requestBody: req({ customerNo: str("8-digit customer number"), intAddressInfoType: { type: "string", enum: ["E", "P", "B"], default: "E", description: "E e-mail, P phone, B both" } }, ["customerNo", "intAddressInfoType"]),
+      responses: resp({ communicationType: { type: "string", enum: ["Both", "Phone", "Email"] }, ibanCountryCode: { type: "string" }, ibanAreaCode: { type: "string" }, ibanPhoneNum: { type: "string" }, ibanEmail: str("the registered e-mail address; empty when none"), ttsEmail: { type: "string" }, commGramType: { type: "string" }, exitState: { type: "string" } }) } },
+    "/statement.pdf.send": { post: { operationId: "statement.pdf.send", summary: "Sends the statement PDF to the given address (side effect). 404 FB_IVR_CHANNEL_107 when there is no statement document. " + envelope,
+      requestBody: req({ customerNo: str("8-digit customer number"), cardNumber: str("the cardNumber exactly as cards.list returned it"), currencyType: { type: "string", enum: ["TL", "USD", "EUR", "GBP"] }, statementDate: str("the statementDate from cards.balance, dd.MM.yyyy"), emailAddress: str("the registered e-mail address from contact.email.get") }, ["customerNo", "cardNumber", "currencyType", "statementDate", "emailAddress"]),
+      responses: resp({ exitState: { type: "string", enum: ["DONE"] } }) } },
+  };
+  return { openapi: "3.0.3", info: { title: "Freya Bank voice services (team mock of the service contract)", version: "1.0", description: "POST, JSON. Success = HTTP 200 and result.returnCode \"1\". Error answers have no data object, only result (code, message, type ERROR/WARNING). Dates dd.MM.yyyy; amounts JSON numbers." }, servers: [{ url: origin + BASE }], paths };
 }
 
-function productProps() {
-  // the union of the fields the test customers' products carry
-  const props = {};
-  for (const c of Object.values(CUSTOMERS)) for (const p of c.products || []) for (const [k, v] of Object.entries(p)) {
-    if (!props[k]) props[k] = { type: typeof v === "number" ? (Number.isInteger(v) ? "integer" : "number") : "string" };
-  }
-  const types = [...new Set(Object.values(CUSTOMERS).flatMap((c) => (c.products || []).map((p) => p.type)).filter(Boolean))];
-  if (props.type && types.length) props.type.enum = types;
-  return props;
-}
+export default {
+  async fetch(request) {
+    const url = new URL(request.url);
+    const path = url.pathname.replace(/\/+$/, "");
+    if (request.method === "OPTIONS") return new Response(null, { headers: CORS });
+    if (request.method === "GET" && (path === "/health" || path === "")) return json({ durum: "ok", services: SERVICES.map((s) => BASE + "/" + s) });
+    if (request.method === "GET" && (path === "/openapi.json" || path === BASE + "/openapi.json")) return json(openapi(url.origin));
+    if (request.method === "POST" && path.startsWith(BASE + "/")) {
+      const service = path.slice(BASE.length + 1);
+      if (!SERVICES.includes(service)) return json({ hata: "bulunamadı", yollar: SERVICES.map((s) => "POST " + BASE + "/" + s) }, 404);
+      let body = null;
+      try { body = await request.json(); } catch { body = null; }
+      try {
+        return await serve(service, body);
+      } catch (e) {
+        return ERR.technical();
+      }
+    }
+    return json({ hata: "bulunamadı", yollar: ["GET /health", "GET /openapi.json", ...SERVICES.map((s) => "POST " + BASE + "/" + s)] }, 404);
+  },
+};
