@@ -19,3 +19,6 @@ dev/spikes/*_run*.json
 submission/mock.*
 submission/cli-test*
 dev/spikes/*_chat.json
+submission/final-dry.*
+submission/e2e-*
+submission/ext-*
