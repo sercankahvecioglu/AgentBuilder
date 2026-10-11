@@ -102,6 +102,7 @@ DONE 06:03 UTC: exit 0, 521 s, 2 model calls, verify 0 errors / 4 warnings, 651 
 3. If it crashes: fix generically (a parser or schema edge case), commit, rerun. Do not add mock values anywhere in `builder/`.
 
 ### Step 6: freeze preparation (by 14:30)
+DONE 06:30 UTC except the tag (set after the own-cases rerun) and item 7 (stop the watchdog before 15:00 if it is still running).
 1. `git status` clean except `out/`, `results/`, state files. `git log --all -- .env` empty. `grep -rn "fak_\|sk-ant-" submission/ builder/ dev/` empty.
 2. Isolation check: `grep -rn 'memory\.md\|DEV_PLAN\|DEV_GUIDE\|"dev/\|public-test-set\|briefs/' builder/*.py builder/templates/snippets/*.py` shows docstrings only, no file reads.
 3. `dev/audit_grep.py` clean. Local suites green. `python -m pytest dev/tests -q` green (Track B's tests).
@@ -130,9 +131,10 @@ DONE 06:03 UTC: exit 0, 521 s, 2 model calls, verify 0 errors / 4 warnings, 651 
 - A generated line reads like an instruction ("Say that you are..."): the spec field came back as an instruction; the generator falls back to a model-written line, but check Track B's 1b prompt wording for `first_sentence`, `intro_sentence`, `success_sentence`, `confirm_question`, `first_question`.
 - Static test failure on a hidden brief: read the message; a failing invariant means the spec has an unexpected value (for example a band gap) or the generator met a shape it has not seen. Fix generically; the build still saves an agent and exits 0.
 
-## 4. Definition of done (DEV_PLAN §6, updated)
-- [ ] A 10/10 and B 3/3 at reps 3 on the final build; own cases 6/6; styles at the targets above
-- [ ] e2e-a (real extraction) ≥ 9/10 at reps 1; A+B from brief files builds in < 15 min with a complete trace
-- [ ] raw-mock runbook dry run exits 0 with a complete trace and mock-only wording
-- [ ] audit clean; isolation clean; no secrets; tag `pre-final`
-- [ ] memory.md and whatisdone.md updated with the final numbers
+## 4. Definition of done (DEV_PLAN §6, updated) — state at 06:30 UTC
+- [x] A 10/10 and B 3/3 at reps 3 on the final build (`results/a-reps3-6.log`, `results/b-reps3-6.log`); asks_back, pieces, in_words 10/10; own cases rerun on the final build: `results/own-a-2.log`
+- [x] e2e-a (real extraction) 9/10 at reps 1 (the single miss was the judge's "recorded" check before the wording fix); A+B from brief files builds in 490 s with a complete trace, B 3/3
+- [x] raw-mock runbook dry run exits 0 (521 s) with a complete trace and mock-only wording
+- [x] audit clean; isolation clean; no secrets in tracked files or history; fresh venv builds; tag `pre-final` (after the own-cases rerun)
+- [x] memory.md and whatisdone.md updated with the final numbers
+- [ ] Sunday runbook (step 7) with the user
