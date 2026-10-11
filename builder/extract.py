@@ -138,6 +138,8 @@ of governing facts. Code will generate the agent from your output without readin
    - Verbatim sentences and questions from the governing facts (the first question, the confirmation question, the
      recorded-promise sentence, the sympathy or condolence sentence) go into their closed fields word for word, even
      when another fact changes how often or for how many items they are asked.
+   - `identity.questions[].ask_text` is the security question itself, ready to speak in the first person ("Could you
+     please tell me your date of birth?"), using the documents' wording where they give it; never "Ask for ...".
    - Ready-to-speak sentence fields (`opening.first_sentence`, `debt_statement.intro_sentence`): compose one natural
      first-person sentence from the documents' own words that contains every element the documents require for that
      moment (for the first sentence: who is calling and that the call is recorded; for the intro: who is calling and
@@ -163,7 +165,7 @@ of governing facts. Code will generate the agent from your output without readin
 4. Tool names, field names, enum values and codes must be exactly as in the tool API. Product types come from the tool
    API's product type enum; identity `api_field`s from the identity tool's field enum; queues from the transfer tool's
    queue enum; note reasons from the note tool's enum if it has one, else from the facts' code list.
-5. Text leaves (`ask_text`, `intro_instruction`, `say_text`, `fail_message`, ...) are short imperative instructions for
+5. Text leaves (`intro_instruction`, `say_text`, `fail_message`, ...) are short imperative instructions for
    the agent, in the documents' language. Keep required wording verbatim.
 6. Do not add rules, values, names or numbers that are not in the facts."""
 
