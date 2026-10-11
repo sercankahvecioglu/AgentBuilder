@@ -30,6 +30,23 @@ Options: `--votes 3` (three parallel extractions, field-wise majority), `--skip-
 Pipeline: extract facts and conflicts (Claude, structured output) → resolve conflicts in code → fill the spec → verify
 against the tool API → generate the workflow with code only → static tests → save and publish → chat smoke test → export.
 
+## The final case (one folder of documents, our own mock)
+
+The final case is a folder of the bank's documents (Markdown, Word, PDF, Excel) and a mock of the bank's services that
+we host on Cloudflare Workers (`mock/`, see `mock/README.md`). The mock serves its own tool API at `/openapi.json`, so
+the builder needs only the folder and the mock's URL:
+
+```bash
+pip install -r requirements.txt            # adds python-docx, openpyxl, pypdf for Word/PDF/Excel inputs
+set -a && source .env && set +a
+python3 builder/build.py <case_folder> https://<mock>.workers.dev --slot final 2>&1 | tee traces/final.log
+```
+
+Outputs as before: `out/final.spec.json`, `out/final.workflow.json`, `submission/final.workflow.json` (the export) and
+`submission/final.trace.txt`. The call language comes from the documents (the spec's `language`); every fixed spoken
+line, date and amount format follows it (English and Turkish are built in). Nothing from the case is in the builder:
+the mock's `src/contract.js` holds the service contract and the test customers, the builder reads the folder.
+
 ## The ten-minute start
 
 You need Python 3.10 or newer.
