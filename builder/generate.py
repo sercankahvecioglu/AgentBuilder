@@ -647,7 +647,11 @@ except Exception:
                 baked[f] = "{{p_amount}}"
             elif "date" in f:
                 baked[f] = "{{p_date}}"
-        nodes["promise_guard"] = code_node("promise_guard", self.snippet("promise_guard"), "wrap_up", [eq("do_promise", "pg_next", "do_promise"), eq("negotiation_router", "pg_next", "negotiation_router")])
+        # the guard's default (no pg_next written: the sandbox lost the writes once in ~150 calls) is a second, identical
+        # guard rather than the close, so one lost run does not turn a confirmed promise into a refusal
+        pg_trans = [eq("do_promise", "pg_next", "do_promise"), eq("negotiation_router", "pg_next", "negotiation_router")]
+        nodes["promise_guard"] = code_node("promise_guard", self.snippet("promise_guard"), "promise_guard2", pg_trans)
+        nodes["promise_guard2"] = code_node("promise_guard2", self.snippet("promise_guard"), "wrap_up", list(pg_trans))
         nodes["do_promise"] = api_node("do_promise", api_tool(self.api, cp, baked, pre=self.hook_pre_numeric(cp), post=self.hook_post_status("pr_status", self.api.op(cp).id_fields, "Promise recorded."), timeout_ms=WRITE_TIMEOUT_MS), "promise_result", [])
         nodes["promise_result"] = code_node("promise_result", self.snippet("promise_result"), "wrap_up",
                                             [eq("do_promise", "prs_next", "do_promise"), eq("promise_guard", "prs_next", "promise_guard"), eq("say_recorded", "prs_next", "say_recorded")])
