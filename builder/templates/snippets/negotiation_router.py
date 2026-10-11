@@ -205,7 +205,10 @@ try:
     elif pay == 'asks_question' or _intent(pay) is not None:
         it = _intent(pay)
         if pay == 'asks_question':
-            vars['resume_hint'] = 'Answer the question briefly from the rules you have, then repeat your last question or proposal.'
+            if _f(p.get('prop_amount')) > 0 and _s(p.get('prop_date')):
+                vars['resume_hint'] = 'Answer the question briefly from the facts you have, then wait for the answer to your last proposal. Do not state the proposal again and do not make any new offer.'
+            else:
+                vars['resume_hint'] = 'Answer the question briefly from the facts you have, then repeat your last question.'
             vars['resume_node'] = 'negotiate'
             nxt = 'resume_router'
         elif MULTI and it is not None and it.get('continue_other_products') and _s(it.get('action_note_reason')):

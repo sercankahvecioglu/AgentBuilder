@@ -23,6 +23,15 @@ from builder.trace import Trace
 
 MODEL = os.environ.get("BUILDER_MODEL", "claude-opus-5-5")
 DEFAULT_MAX_TOKENS = 64000
+
+
+def backend() -> str:
+    """'api' (Anthropic Messages API, needs ANTHROPIC_API_KEY) or 'agent' (Claude Agent SDK, uses the Claude login
+    of the machine, i.e. a claude.ai subscription). BUILDER_BACKEND overrides; default: api if a key is set, else agent."""
+    b = os.environ.get("BUILDER_BACKEND", "").strip().lower()
+    if b in ("api", "agent"):
+        return b
+    return "api" if os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("ANTHROPIC_AUTH_TOKEN") else "agent"
 T = TypeVar("T", bound=BaseModel)
 
 
@@ -74,6 +83,9 @@ def structured(
     Raises Refused on a refusal, LLMError after retries on max_tokens or invalid JSON.
     """
     schema = strict_schema(output_model)
+    if backend() == "agent":
+        return _structured_agent_sdk(purpose, output_model, schema, user, stable_system, instructions, effort,
+                                     trace, model, retries_on_invalid)
     attempt = 0
     last_err: Exception | None = None
     while attempt <= retries_on_invalid:
@@ -132,6 +144,94 @@ def structured(
     raise last_err or LLMError(f"{purpose}: failed")
 
 
+# ---------------------------------------------------------------------------
+# Claude Agent SDK backend (subscription login). Same contract as the API path.
+# The agent gets NO tools, an empty setting source list and a scratch cwd, so it can read nothing but the prompt (D22).
+# ---------------------------------------------------------------------------
+
+
+def _structured_agent_sdk(purpose, output_model, schema, user, stable_system, instructions, effort, trace, model,
+                          retries_on_invalid) -> tuple[Any, dict[str, Any]]:
+    import asyncio
+    import tempfile
+
+    from claude_agent_sdk import ClaudeAgentOptions, ResultMessage, query
+
+    system = "\n\n".join(x for x in (instructions, stable_system) if x)
+    scratch = tempfile.mkdtemp(prefix="builder-llm-")
+    options = ClaudeAgentOptions(
+        model=model,
+        effort=effort,
+        system_prompt=system,
+        output_format={"type": "json_schema", "schema": schema},
+        tools=[],
+        allowed_tools=[],
+        permission_mode="dontAsk",
+        setting_sources=[],
+        cwd=scratch,
+        max_turns=3,
+        env={"CLAUDECODE": "", "CLAUDE_CODE_ENTRYPOINT": ""},  # allow running from inside a Claude Code session
+    )
+
+    async def run() -> ResultMessage | None:
+        result = None
+        async for message in query(prompt=user, options=options):
+            if isinstance(message, ResultMessage):
+                result = message
+        return result
+
+    attempt = 0
+    last_err: Exception | None = None
+    while attempt <= retries_on_invalid:
+        attempt += 1
+        t0 = time.monotonic()
+        try:
+            res = asyncio.run(run())
+        except Exception as e:  # noqa: BLE001 (SDK process errors)
+            if trace:
+                trace.model_call(model, purpose, time.monotonic() - t0, 0, 0, None, f"error:{type(e).__name__}", effort, ok=False)
+            raise LLMError(f"{purpose}: agent sdk error {type(e).__name__}: {e}") from e
+        seconds = time.monotonic() - t0
+        if res is None:
+            raise LLMError(f"{purpose}: agent sdk returned no result")
+        u = res.usage or {}
+        used_model = next(iter(res.model_usage or {}), model) if res.model_usage else model
+        meta = {
+            "seconds": seconds,
+            "input_tokens": int(u.get("input_tokens", 0)),
+            "output_tokens": int(u.get("output_tokens", 0)),
+            "cache_read": int(u.get("cache_read_input_tokens", 0) or 0),
+            "cache_write": int(u.get("cache_creation_input_tokens", 0) or 0),
+            "request_id": res.session_id,
+            "stop_reason": res.stop_reason or res.subtype,
+            "model": used_model,
+            "cost_usd": res.total_cost_usd,
+            "raw_text": res.result or "",
+        }
+        ok = not res.is_error and res.structured_output is not None
+        if trace:
+            trace.model_call(used_model, purpose, seconds, meta["input_tokens"], meta["output_tokens"], res.session_id,
+                             meta["stop_reason"], effort, meta["cache_read"], meta["cache_write"], ok=ok)
+        if res.is_error:
+            last_err = LLMError(f"{purpose}: agent sdk error {res.subtype}: {res.errors or res.result}")
+            if trace:
+                trace.warn(str(last_err)[:300])
+            continue
+        data = res.structured_output
+        if data is None and res.result:
+            try:
+                data = json.loads(res.result)
+            except json.JSONDecodeError:
+                data = None
+        try:
+            return output_model.model_validate(data), meta
+        except ValidationError as e:
+            last_err = LLMError(f"{purpose}: output did not validate: {str(e)[:500]}")
+            if trace:
+                trace.warn(f"{purpose}: invalid structured output, retrying ({str(e)[:200]})")
+    raise last_err or LLMError(f"{purpose}: failed")
+
+
 def smoke_test(trace: Trace | None = None) -> dict[str, Any]:
     """T3.1 acceptance check: one tiny structured call returns a validated model and writes a trace line."""
 
@@ -157,12 +257,19 @@ if __name__ == "__main__":
     import sys
 
     tr = Trace(None)
+    print("backend:", backend(), "model:", MODEL, file=sys.stderr)
     if "--schema-check" in sys.argv:
-        # compile the real schemas on the API with a minimal prompt (structured-output limits check)
+        # compile the real schemas with a minimal prompt (structured-output limits check)
         from builder.schema import Extraction, Spec
 
         for m in (Extraction, Spec):
             t0 = time.monotonic()
+            if backend() == "agent":
+                parsed, meta = _structured_agent_sdk(f"schema check {m.__name__}", m, strict_schema(m),
+                    "Return the smallest valid object: empty lists everywhere, empty strings, zeros, false.",
+                    "", "You are a schema test endpoint. Follow the user exactly.", "low", tr, MODEL, 0)
+                print(f"{m.__name__}: schema accepted (stop={meta['stop_reason']}, {meta['seconds']:.1f}s, cost ${meta.get('cost_usd')})")
+                continue
             try:
                 with client().messages.stream(
                     model=MODEL, max_tokens=64,
