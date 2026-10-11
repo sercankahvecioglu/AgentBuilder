@@ -22,8 +22,8 @@ def check():
             continue
         it = freya.get_iteration(s["id"], its[0]["id"])
         runs = it.get("runs") or []
-        done = runs and all(r.get("outcome") in ("pass", "fail") for r in runs)
-        if not done:
+        # every call has ended (a verdict may still be 'inconclusive' or 'analyzing'; after 20 min it is never coming)
+        if not runs or not all(r.get("endedAt") for r in runs):
             continue
         ended = max((r.get("endedAt") or "") for r in runs)
         try:
