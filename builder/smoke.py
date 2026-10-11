@@ -6,6 +6,7 @@ first security question. The customer id is a dummy, so no bank write can happen
 """
 from __future__ import annotations
 
+import json
 import pathlib
 import re
 import sys
@@ -63,4 +64,30 @@ def run_smoke(workflow_id: str, spec: Spec) -> List[str]:
         q0 = spec.identity.questions[0] if spec.identity.questions else None
         if q0 and not any(w in r1 for w in re.findall(r"[a-z]{4,}", q0.api_field.replace("_", " "))):
             warnings.append(f"smoke: turn 2 does not look like the first security question ({q0.api_field}): {replies[1][:200]!r}")
+    return warnings + [f"smoke reply {i + 1}: {r[:300]}" for i, r in enumerate(replies)]
+
+
+def run_smoke_generic(workflow_id: str, wf: dict) -> List[str]:
+    """Two chat turns with the workflow's own test_variables (agent build mode: no spec to check against)."""
+    variables = {k: (v if isinstance(v, str) else json.dumps(v)) for k, v in (wf.get("test_variables") or {}).items()}
+    replies, warnings = [], []
+    call_id = None
+    for msg in ["Alo?", "Evet."]:
+        body = {"workflowId": workflow_id, "message": msg, "customerVariables": variables}
+        if call_id:
+            body["callId"] = call_id
+        try:
+            r = freya.api("POST", "/api/v2/chat/message", body)
+        except RuntimeError as e:
+            warnings.append(f"smoke: chat turn failed: {str(e)[:200]}")
+            break
+        call_id = r.get("callId") or call_id
+        replies.append(str(r.get("response") or ""))
+    if call_id:
+        try:
+            freya.api("POST", "/api/v2/chat/end", {"callId": call_id})
+        except RuntimeError:
+            pass
+    if not replies or not replies[0].strip():
+        warnings.append("smoke: no reply to the first turn")
     return warnings + [f"smoke reply {i + 1}: {r[:300]}" for i, r in enumerate(replies)]

@@ -42,6 +42,8 @@ def main(argv=None):
     ap.add_argument("--skip-smoke", action="store_true")
     ap.add_argument("--skip-static", action="store_true")
     ap.add_argument("--no-verify", action="store_true")
+    ap.add_argument("--mode", choices=["spec", "agent"], default="spec",
+                    help="spec: extraction + code generator (collections calls); agent: the workflow is written by Claude from the documents and validated by code")
     a = ap.parse_args(argv)
     api_path, inputs, mock_url = None, [], ""
     for i, x in enumerate(a.inputs):
@@ -78,7 +80,15 @@ def main(argv=None):
         tr.section("1 inputs and tool API")
         api = parse_api(api_path)
         tr.kv("tool API", f"{api.title!r} base={api.base_url} operations={sorted(api.ops)}")
-        if a.spec:
+        spec = None
+        if a.mode == "agent":
+            tr.section("2-6 agent build (Claude Agent SDK writes the workflow; code validates)")
+            from builder.agent_build import agent_build
+            from builder.inputs import expand_inputs
+            files = expand_inputs(inputs)
+            tr.kv("input files", ", ".join(os.path.basename(f) for f in files)[:600])
+            wf = agent_build(files, api_path, slot, out, tr)
+        elif a.spec:
             tr.section("2-5 extraction skipped: spec given")
             spec = Spec.model_validate(json.load(open(a.spec, encoding="utf-8")))
             tr.kv("spec loaded from", a.spec)
@@ -95,18 +105,26 @@ def main(argv=None):
             votes = a.votes if time.time() - t0 < TIME_GUARD_S else 1
             ex, res, spec, issues = extract(brief, api_sum, tr, a.effort, out_prefix=str(out / slot), votes=votes,
                                             verify_inputs_text="" if a.no_verify else brief)
-        (out / f"{slot}.spec.json").write_text(json.dumps(spec.model_dump(), indent=1, ensure_ascii=False))
-        tr.kv("spec written", str(out / (slot + ".spec.json")))
-        for u in spec.unresolved:
-            tr.line(f"UNRESOLVED {u.topic}: default applied {u.default_applied!r}")
-        tr.section("6 generate (code only)")
-        wf = generate(spec, api)
+        if spec is not None:
+            (out / f"{slot}.spec.json").write_text(json.dumps(spec.model_dump(), indent=1, ensure_ascii=False))
+            tr.kv("spec written", str(out / (slot + ".spec.json")))
+            for u in spec.unresolved:
+                tr.line(f"UNRESOLVED {u.topic}: default applied {u.default_applied!r}")
+            tr.section("6 generate (code only)")
+            wf = generate(spec, api)
         wf_path = out / f"{slot}.workflow.json"
         wf_path.write_text(json.dumps(wf, indent=1, ensure_ascii=False))
         kinds = {k: sum(1 for n in wf["nodes"].values() if n["node_type"] == k) for k in ("conversation", "code", "api_request", "end_call")}
         n_tools = sum(len(nd.get("tools", [])) + len([p for p in nd.get("pre_actions", []) if p["function"]["handler"] == "__function__:api_call"]) for nd in wf["nodes"].values())
         tr.kv("workflow", f"{len(wf['nodes'])} nodes {kinds}, {n_tools} api_call tools, {len(wf['system_prompt'])} chars system prompt")
-        if not a.skip_static:
+        if spec is None:
+            tr.section("7 static checks (generic)")
+            from builder.validate import check
+            verrs = check(wf, json.load(open(api_path, encoding="utf-8")))
+            for e in verrs:
+                tr.test("validate: " + e, False)
+            tr.kv("static checks", f"{len(verrs)} error(s)")
+        elif not a.skip_static:
             tr.section("7 static tests (local)")
             from builder.static_tests import T, invariants, lint
             t = T()
@@ -135,8 +153,8 @@ def main(argv=None):
             else:
                 tr.section("9 smoke test (chat/message, 2 turns, no bank writes)")
                 try:
-                    from builder.smoke import run_smoke
-                    res_lines = run_smoke(saved["workflow_id"], spec)
+                    from builder.smoke import run_smoke, run_smoke_generic
+                    res_lines = run_smoke(saved["workflow_id"], spec) if spec is not None else run_smoke_generic(saved["workflow_id"], wf)
                     warns = [w for w in res_lines if not w.startswith("smoke reply")]
                     for w in res_lines:
                         tr.line(w)
