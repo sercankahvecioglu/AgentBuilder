@@ -497,6 +497,7 @@ for it in AB["special_intents"]:
         it["close_outcome"] = ""
         it["close_reason"] = ""
         it["continue_other_products"] = True
+        it["continue_call"] = True  # README: close_outcome "" + continue_call true = the call goes on
         it["fact_ids"].append("B-9")
     if it["key"] == "hardship":
         it["action_note_reason"] = "hardship"
