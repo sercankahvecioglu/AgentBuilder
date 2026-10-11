@@ -112,16 +112,22 @@ DONE 06:32 UTC: own cases 6/6 on the final build (`results/own-a-2.log`), tag `p
 7. Stop all background runners and the watchdog. Nothing may be running on the workspace at 15:00.
 
 ### Step 7: Sunday 17:00-20:00 (the user must be present)
-Note 15:48 UTC: the platform was very slow in the hour before 17:00 (35-45 s per chat turn). The build's smoke test may then log 504s; that is a warning, not a build failure, and the build still saves, exports and exits 0. Do not retry the build for a smoke 504. The submission base is tag `pre-final` = merge commit `9bab106` (sarper-dev generator merged at 16:41 after it scored A 10/10 on a recovered platform; see memory.md 16:42). Its build also retries save/export on 502/504 and writes a fallback export if every save fails.
-1. Put each hidden brief's files and its tool API in `final_inputs/<brief-1>/` and `final_inputs/<brief-2>/` (any text files; the API file last on the command line). Do not paste their content anywhere else.
+Format per the README section "The final case" (Sarper, 16:xx UTC): each hidden brief is **a folder of documents** (Markdown, text, Word, PDF, Excel, mail, CSV) plus **a mock of the bank's services** that serves its own tool API at `<mock_url>/openapi.json`. The builder takes the folder and the URL:
+
+```bash
+set -a && source .env && set +a && unset ANTHROPIC_API_KEY && export BUILDER_BACKEND=agent
+python3 builder/build.py final_inputs/<case-1>/ https://<mock-1>.workers.dev --slot final-1 2>&1 | tee results/final-1.log
+python3 builder/build.py final_inputs/<case-2>/ https://<mock-2>.workers.dev --slot final-2 2>&1 | tee results/final-2.log
+```
+A local tool API file still works as the last argument (`... final_inputs/<case>/ final_inputs/<case>/openapi.json --slot final-1`). If the organisers hand out a mock to deploy, `mock/README.md` describes ours (Cloudflare Workers); deploy it first and pass its URL.
+
+1. Put each hidden brief's files in `final_inputs/<case>/` (git-ignored). Do not paste their content anywhere else.
 2. Check the subscription window is fresh (two builds need 4-6 large calls). Fallback: `ANTHROPIC_API_KEY` in `.env` with `BUILDER_BACKEND=api`.
-3. Build, one brief at a time, in the background with a log, and watch the trace:
-   `$P builder/build.py final_inputs/<brief-1>/* --slot final-1` (list the text files explicitly, the `.json`/`.yaml` tool file last) and the same for `final-2`.
-   Expected: 7-13 min each, exit 0, `submission/final-1.workflow.json`, `submission/final-1.trace.txt`.
-4. Read the trace: static test failures and smoke warnings are allowed but read them; if the static tests report a crash or the smoke reply lacks the opening elements, open `out/final-1.workflow.json`, find the cause, fix generically in `builder/`, commit, rebuild from scratch (new extraction) or with `--spec out/final-1.spec.json` if the spec was fine.
-5. No hand edits on the platform. No practice simulations on the hidden agents (there are no practice customers for them); the chat smoke test inside the build is the only live check.
-6. Commit: code, `submission/final-1.*`, `submission/final-2.*`, `requirements.txt`. No `.env`, no `final_inputs/` needed. Record the commit hash.
-7. Send the form before 20:00: team, repo URL, commit hash, run command (`python3 builder/build.py <brief files> <tool_api.json> --slot final-N`), workflow paths, trace paths; mention that the builder runs on a Claude login (subscription) or an API key.
+3. Build one case at a time (7-13 min each). The build retries save and export on 502/504 and writes a fallback export if every save fails. Expected: exit 0, `submission/final-N.workflow.json`, `submission/final-N.trace.txt`.
+4. Read the trace: static-test failures and smoke warnings (including 504s on a loaded platform) are warnings, not failures. If the static tests report a crash or the smoke reply lacks the opening elements, open `out/final-N.workflow.json`, find the cause, fix generically in `builder/`, commit, rebuild (`--spec out/final-N.spec.json` reuses the extraction if the spec was fine).
+5. No hand edits on the platform. No practice simulations on the hidden agents; the chat smoke test inside the build is the only live check.
+6. Commit: code, `submission/final-1.*`, `submission/final-2.*`, `requirements.txt`. No `.env`, no `final_inputs/`. Record the commit hash.
+7. Send the form before 20:00: team, repo URL, commit hash, run command (`python3 builder/build.py <case_folder> <mock_url_or_openapi.json> --slot final-N`), workflow paths, trace paths; mention that the builder runs on a Claude login (subscription) or an API key.
 
 ## 3. What to do when something goes wrong
 
