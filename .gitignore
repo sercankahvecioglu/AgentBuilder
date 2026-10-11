@@ -23,3 +23,6 @@ submission/final-dry.*
 submission/e2e-*
 submission/ext-*
 submission/brief-a*.trace.txt
+
+# hidden-brief inputs on the final day (never committed)
+final_inputs/
