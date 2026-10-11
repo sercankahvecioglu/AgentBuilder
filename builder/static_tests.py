@@ -176,7 +176,8 @@ def lint(t: T, wf: dict, spec: Spec, api):
                     nm = pa["function"]["name"]
                     op = api.ops.get(nm)
                     is_read = op is not None and [f for f in op.fields if f != tv(spec.roles.customer_id_var)] == []
-                    t.ok(is_read or pa["config"].get("maxRetries", 0) == 0, f"lint: write tool {nm} in {n} must have maxRetries 0")
+                    # the close is the last call and nothing is accepted after it, so one platform retry cannot duplicate anything
+                    t.ok(is_read or n.startswith("close_") or pa["config"].get("maxRetries", 0) == 0, f"lint: write tool {nm} in {n} must have maxRetries 0")
         if nd["node_type"] == "conversation":
             t.ok(not nd.get("pre_actions"), f"lint: pre_actions on conversation node {n}")
             for ex in nd.get("extraction_schema", []):

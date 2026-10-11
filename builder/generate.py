@@ -17,6 +17,74 @@ HERE = pathlib.Path(__file__).resolve().parent
 SNIP = HERE / "templates" / "snippets"
 
 WEEKDAY_NAMES = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
+
+# Fixed spoken lines, per call language. Placeholders in square brackets are filled by the snippets/generator.
+# (Instructions to the dialogue model stay in English in every language; only what the agent says as a fixed line is here.)
+PHRASES = {
+    "en": {
+        "weekday_names": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
+        "month_names": ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"],
+        "date_order": "wdmy", "decimal": ".",
+        "propose": "Could you pay [amount][lab] on [date]?", "for_label": " for the [label]",
+        "rest_overdue": " The rest stays overdue.", "offer_floor": "Could you pay the minimum of [amount] instead?",
+        "day_passed": "That day has already passed.", "not_bd": "[date] is not a business day.",
+        "latest": "The latest date I can record is [date].", "understand": "I understand.",
+        "which_day": "Which exact day would that be?", "cut_again": "Sorry, I did not catch all of that. Could you say it again?",
+        "not_catch_answer": "Sorry, I did not catch your answer. Does that work for you?",
+        "say_again": "Sorry, I did not catch that. Could you say that again?",
+        "noted_next": "Noted, I will read everything back at the end.", "now_product": "Now the [label].",
+        "below_floor": "An amount below the minimum of [amount] cannot be recorded.",
+        "all_products_nbd": "[date] is not a business day, so for all products:",
+        "own_deadline": "on its own latest date, [date], because the day you named is after it",
+        "readback_item": "[label]: [amount] on [date]", "leave_today": "I will leave it there for today.",
+        "no_callback": "No callback could be arranged.", "apologise": "I apologise for the disturbance.",
+        "not_confirm": "I could not confirm who is on the line.", "no_security": "I cannot continue without the security check.",
+        "security_incomplete": "I could not complete the security check.", "connect": "I will connect you with the [queue] team now.",
+        "debt_line": "Your [label] [parts].", "debt_and": " and ", "debt_past_due": "has a past-due amount of [amount]",
+        "debt_days_late": "is [n] days late", "debt_floor": "has a minimum payment of [amount]", "debt_deadline": "must be paid by [date]",
+        "no_products": "No late product was returned.",
+        "thank_you": "Thank you. ", "listening": "Sorry, I am listening. ", "not_catch": "Sorry, I did not catch that. ",
+        "to_confirm": "To confirm: ", "recorded": "Thank you, your promise is recorded. [succ] Thank you for your time and goodbye.",
+        "goodbye": "Thank you for your time and goodbye.",
+        "callback_set": "A callback is arranged for [when].", "callback_failed": "The callback could not be scheduled because of a technical problem.",
+        "at_time": "[date] at [time]",
+    },
+    "tr": {
+        "weekday_names": ["Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar"],
+        "month_names": ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"],
+        "date_order": "dmyw", "decimal": ",",
+        "propose": "[date] tarihinde[lab] [amount] ödeyebilir misiniz?", "for_label": " [label] için",
+        "rest_overdue": " Kalan tutar gecikmede kalır.", "offer_floor": "Bunun yerine asgari tutar olan [amount] ödeyebilir misiniz?",
+        "day_passed": "O gün geçti.", "not_bd": "[date] iş günü değil.",
+        "latest": "Kaydedebileceğim en geç tarih [date].", "understand": "Anlıyorum.",
+        "which_day": "Tam olarak hangi gün olur?", "cut_again": "Özür dilerim, tam duyamadım. Tekrar söyler misiniz?",
+        "not_catch_answer": "Özür dilerim, cevabınızı anlayamadım. Bu sizin için uygun mu?",
+        "say_again": "Özür dilerim, anlayamadım. Tekrar söyler misiniz?",
+        "noted_next": "Not aldım, sonunda hepsini tekrar okuyacağım.", "now_product": "Şimdi [label].",
+        "below_floor": "Asgari tutar olan [amount] altındaki bir tutar kaydedilemez.",
+        "all_products_nbd": "[date] iş günü değil, bu yüzden tüm ürünler için:",
+        "own_deadline": "kendi son tarihi olan [date] için, çünkü söylediğiniz gün bu tarihten sonra",
+        "readback_item": "[label]: [date] tarihinde [amount]", "leave_today": "Bugünlük burada bırakıyorum.",
+        "no_callback": "Geri arama ayarlanamadı.", "apologise": "Rahatsızlık için özür dilerim.",
+        "not_confirm": "Hatta kimin olduğunu doğrulayamadım.", "no_security": "Güvenlik doğrulaması olmadan devam edemiyorum.",
+        "security_incomplete": "Güvenlik doğrulamasını tamamlayamadım.", "connect": "Sizi şimdi [queue] ekibine bağlıyorum.",
+        "debt_line": "[label] için [parts].", "debt_and": " ve ", "debt_past_due": "[amount] tutarında gecikmiş borcunuz var",
+        "debt_days_late": "[n] gündür gecikmede", "debt_floor": "asgari ödeme tutarı [amount]", "debt_deadline": "en geç [date] tarihine kadar ödenmeli",
+        "no_products": "Gecikmiş ürün bulunamadı.",
+        "thank_you": "Teşekkürler. ", "listening": "Özür dilerim, dinliyorum. ", "not_catch": "Özür dilerim, anlayamadım. ",
+        "to_confirm": "Onaylamak için: ", "recorded": "Teşekkürler, ödeme sözünüz kaydedildi. [succ] Zaman ayırdığınız için teşekkürler, hoşça kalın.",
+        "goodbye": "Zaman ayırdığınız için teşekkürler, hoşça kalın.",
+        "callback_set": "[when] için geri arama ayarlandı.", "callback_failed": "Teknik bir sorun nedeniyle geri arama ayarlanamadı.",
+        "at_time": "[date] saat [time]",
+    },
+}
+
+
+def lang_code(language: str) -> str:
+    x = (language or "").strip().lower()
+    if x.startswith(("tr", "tur", "türk")):
+        return "tr"
+    return "en"
 MONTH_NAMES = ["january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"]
 MIN_CONF = 0.6
 
@@ -156,6 +224,8 @@ class Generator:
         self.now = tv(spec.roles.now_var)
         self.multi = bool(tv(spec.multi_product.enabled))
         self.intents = {it.key: it for it in spec.special_intents}
+        self.lang = lang_code(tv(spec.language))
+        self.ph = PHRASES[self.lang]
         self.rows = [(r.outcome, r.reason) for r in spec.closing.outcome_table]
         self.row_keys = [row_key(o, r) for o, r in self.rows]
         self.prelude = (SNIP / "prelude.py").read_text()
@@ -191,7 +261,9 @@ class Generator:
                 break
         return {
             "now_var": self.now, "customer_id_var": self.cid,
-            "cal": {"business_weekdays": bw, "holidays": list(tv(cal.holidays)), "next_weekday": tv(cal.next_weekday), "this_weekday": tv(cal.this_weekday)},
+            "cal": {"business_weekdays": bw, "holidays": list(tv(cal.holidays)), "next_weekday": tv(cal.next_weekday), "this_weekday": tv(cal.this_weekday),
+                    "weekday_names": self.ph["weekday_names"], "month_names": self.ph["month_names"], "date_order": self.ph["date_order"], "decimal": self.ph["decimal"]},
+            "ph": {k: v for k, v in self.ph.items() if isinstance(v, str)},
             "max_confirm_asks": int(tv(s.opening.max_confirm_asks)),
             "opening": {"unclear_outcome": s.opening.unclear_close.outcome, "unclear_reason": s.opening.unclear_close.reason},
             "third_party": {
@@ -472,7 +544,7 @@ except Exception:
             # a reply that does not confirm and asks nothing: the confirmation question is asked again as a fixed line
             nodes["opening_again"] = conv_node("opening_again", opening_task, [always("route_opening")],
                                                extraction=nodes["opening"]["extraction_schema"],
-                                               on_enter={"type": "tts", "text": f"Sorry, I did not catch that. {confirm_q}"})
+                                               on_enter={"type": "tts", "text": self.ph["not_catch"] + confirm_q})
         nodes["route_opening"] = code_node("route_opening", self.snippet("route_opening"), "opening",
                                            [eq("identity_start", "opening_next", "identity_start"), eq("third_party", "opening_next", "third_party"),
                                             eq("wrap_up", "opening_next", "wrap_up"), eq("offer", "opening_next", "offer"), eq("resume_router", "opening_next", "resume_router")]
@@ -497,7 +569,7 @@ except Exception:
         nodes["callback_check"] = code_node("callback_check", self.snippet("callback_check"), "third_party",
                                             [eq("do_callback", "tp_next", "do_callback"), eq("wrap_up", "tp_next", "wrap_up"), eq("offer", "tp_next", "offer"), eq("resume_router", "tp_next", "resume_router")])
         # the third-party node's turn cap closes as "no callback", never with the negotiation fallback row
-        nodes["tp_cap"] = code_node("tp_cap", self.const_text + self.prelude + "\ntry:\n    tpc = CONST.get('third_party') or dict()\n    _set_close(tpc.get('no_callback_outcome'), tpc.get('no_callback_reason'), '', 'No callback could be arranged.')\nexcept Exception:\n    pass\n", "wrap_up", [])
+        nodes["tp_cap"] = code_node("tp_cap", self.const_text + self.prelude + "\ntry:\n    tpc = CONST.get('third_party') or dict()\n    _set_close(tpc.get('no_callback_outcome'), tpc.get('no_callback_reason'), '', _ph('no_callback'))\nexcept Exception:\n    pass\n", "wrap_up", [])
         cb_op = self._op_with_fields(["date", "time"]) or "schedule_callback"
         cb_fields = self.api.op(cb_op).fields
         baked = {self.cid: "{{" + self.cid + "}}"}
@@ -531,7 +603,7 @@ except Exception:
             q_speakable = bool(q.ask_text.strip()) and not is_instruction(q.ask_text) and "?" in q.ask_text
             if q_speakable:
                 ask_rule = f"The question is exactly: \"{q.ask_text}\""
-                q_enter = {"type": "tts", "text": ("Thank you. " if i > 0 else "") + q.ask_text.strip()}
+                q_enter = {"type": "tts", "text": (self.ph["thank_you"] if i > 0 else "") + q.ask_text.strip()}
             else:
                 ask_rule = q.ask_text
                 q_enter = {"type": "llm"}
@@ -561,7 +633,7 @@ except Exception:
                 # chatter or a cut-off turn re-asks the question as a fixed line (no model call); every entry replays it
                 again = json.loads(json.dumps(n))
                 again["name"] = f"identity_q{i}_again"
-                again["on_enter"] = {"type": "tts", "text": "Sorry, I am listening. " + q.ask_text.strip()}
+                again["on_enter"] = {"type": "tts", "text": self.ph["listening"] + q.ask_text.strip()}
                 again.pop("on_enter_first_entry_only", None)
                 nodes[f"identity_q{i}_again"] = again
         # set id_node when entering each question: done through small code nodes is heavy; instead the router reads id_node set by id_router targets
@@ -570,7 +642,7 @@ except Exception:
                                        + [eq(f"identity_q{i}_again", "id_next", f"identity_q{i}_again") for i in range(len(idn.questions)) if f"identity_q{i}_again" in nodes]
                                        + [eq("wrap_up", "id_next", "wrap_up"), eq("offer", "id_next", "offer"), eq("resume_router", "id_next", "resume_router")])
         nodes["id_locked"] = code_node("id_locked", self.snippet("id_locked"), "wrap_up", [])
-        nodes["id_cap"] = code_node("id_cap", self.const_text + self.prelude + "\ntry:\n    idc = CONST.get('identity') or dict()\n    _set_close(idc.get('decline_outcome'), idc.get('decline_reason'), '', 'I could not complete the security check.')\nexcept Exception:\n    pass\n", "wrap_up", [])
+        nodes["id_cap"] = code_node("id_cap", self.const_text + self.prelude + "\ntry:\n    idc = CONST.get('identity') or dict()\n    _set_close(idc.get('decline_outcome'), idc.get('decline_reason'), '', _ph('security_incomplete'))\nexcept Exception:\n    pass\n", "wrap_up", [])
         # keep id_node current: each identity node's entry is preceded by a tiny code node for i>0
         for i in range(1, len(idn.questions)):
             nodes[f"identity_q{i}_enter"] = code_node(f"identity_q{i}_enter", self.const_text + self.prelude + f"\ntry:\n    vars['id_node'] = 'identity_q{i}'\n    vars['id_hint'] = ''\n    vars['id_reply'] = 'none'\n    _pause()\nexcept Exception:\n    pass\n", f"identity_q{i}", [])
@@ -615,7 +687,7 @@ except Exception:
         conf = s.confirmation
         rb_task = ("Read the agreed promise back exactly from this list, naming the product, the amount and the day: {{readback_text}}. "
                    f"Then ask exactly: \"{tv(conf.confirm_question)}\"\n{{{{rb_hint}}}}\n{self.stage_rules('confirmation')}\nNo tool call is allowed in this step.")
-        rb_tts = {"type": "llm"} if is_instruction(tv(conf.confirm_question)) else fixed_line("To confirm: {{readback_text}}. " + tv(conf.confirm_question))
+        rb_tts = {"type": "llm"} if is_instruction(tv(conf.confirm_question)) else fixed_line(self.ph["to_confirm"] + "{{readback_text}}. " + tv(conf.confirm_question))
         rb_keys = self.intent_values(before_identity=False)
         rb_vals = ["confirms", "changes", "refuses"] + rb_keys + ["asks_question", "none"]
         nodes["readback"] = conv_node("readback", rb_task, [always("readback_router")],
@@ -625,9 +697,9 @@ except Exception:
         if rb_tts.get("type") == "tts":
             # an unclear or cut-off answer to the read-back: the read-back is repeated as a fixed line (no model call)
             nodes["readback_again"] = conv_node("readback_again", rb_task, [always("readback_router")],
-                                                on_enter=fixed_line("Sorry, I did not catch that. To confirm: {{readback_text}}. " + tv(conf.confirm_question)),
+                                                on_enter=fixed_line(self.ph["not_catch"] + self.ph["to_confirm"] + "{{readback_text}}. " + tv(conf.confirm_question)),
                                                 extraction=nodes["readback"]["extraction_schema"])
-        nodes["readback_llm"] = conv_node("readback_llm", "{{rb_hint}}\nThen, in the same turn, read the promise back exactly like this and ask the question word for word: \"To confirm: {{readback_text}}. " + tv(conf.confirm_question) + "\"\nNo tool call is allowed in this step.",
+        nodes["readback_llm"] = conv_node("readback_llm", "{{rb_hint}}\nThen, in the same turn, read the promise back exactly like this and ask the question word for word: \"" + self.ph["to_confirm"] + "{{readback_text}}. " + tv(conf.confirm_question) + "\"\nNo tool call is allowed in this step.",
                                           [always("readback_router")], extraction=nodes["readback"]["extraction_schema"])
         nodes["negotiation_router"]["transitions"].insert(0, eq("readback_llm", "nego_next", "readback_llm"))
         nodes["readback_router"] = code_node("readback_router", self.snippet("readback_router"), "readback",
@@ -647,7 +719,11 @@ except Exception:
                 baked[f] = "{{p_amount}}"
             elif "date" in f:
                 baked[f] = "{{p_date}}"
-        nodes["promise_guard"] = code_node("promise_guard", self.snippet("promise_guard"), "wrap_up", [eq("do_promise", "pg_next", "do_promise"), eq("negotiation_router", "pg_next", "negotiation_router")])
+        # the guard's default (no pg_next written: the sandbox lost the writes once in ~150 calls) is a second, identical
+        # guard rather than the close, so one lost run does not turn a confirmed promise into a refusal
+        pg_trans = [eq("do_promise", "pg_next", "do_promise"), eq("negotiation_router", "pg_next", "negotiation_router")]
+        nodes["promise_guard"] = code_node("promise_guard", self.snippet("promise_guard"), "promise_guard2", pg_trans)
+        nodes["promise_guard2"] = code_node("promise_guard2", self.snippet("promise_guard"), "wrap_up", list(pg_trans))
         nodes["do_promise"] = api_node("do_promise", api_tool(self.api, cp, baked, pre=self.hook_pre_numeric(cp), post=self.hook_post_status("pr_status", self.api.op(cp).id_fields, "Promise recorded."), timeout_ms=WRITE_TIMEOUT_MS), "promise_result", [])
         nodes["promise_result"] = code_node("promise_result", self.snippet("promise_result"), "wrap_up",
                                             [eq("do_promise", "prs_next", "do_promise"), eq("promise_guard", "prs_next", "promise_guard"), eq("say_recorded", "prs_next", "say_recorded")])
@@ -659,7 +735,7 @@ except Exception:
             rec_task = (f"The promise has just been recorded successfully (the tool returned ok). Say that it is recorded. {succ} Then thank the customer for their time and say goodbye in one short sentence. "
                         "If the customer later asks to change the recorded promise: " + tv(conf.change_after_record_text) + " No tool call is allowed.")
         else:
-            rec_enter = fixed_line(f"Thank you, your promise is recorded. {succ} Thank you for your time and goodbye.", force_tts=True)
+            rec_enter = fixed_line(self.ph["recorded"].replace("[succ]", succ), force_tts=True)
             rec_task = "The promise was recorded and you have said goodbye. If the customer asks to change the recorded promise: " + tv(conf.change_after_record_text) + " Otherwise say goodbye again in a few words. No tool call is allowed."
         nodes["say_recorded"] = conv_node("say_recorded", rec_task, [always("after_recorded")], on_enter=rec_enter, first_only=True)
         nodes["after_recorded"] = code_node("after_recorded", self.const_text + self.prelude + "\ntry:\n    vars['goodbye_done'] = 'yes'\nexcept Exception:\n    pass\n", "wrap_up", [])
@@ -694,7 +770,7 @@ except Exception:
                         "Ask no question of any kind, propose nothing, mention no amount, date or payment, and do not call any tool.")
         nodes["goodbye"] = conv_node("goodbye", goodbye_task, [always("pre_close")])
         nodes["goodbye_tts"] = conv_node("goodbye_tts", "You have said goodbye. If the customer says anything, say goodbye again in a few words. No tool call is allowed.",
-                                         [always("pre_close")], on_enter=fixed_line("{{goodbye_say}} Thank you for your time and goodbye."), first_only=True)
+                                         [always("pre_close")], on_enter=fixed_line("{{goodbye_say}} " + self.ph["goodbye"]), first_only=True)
         nodes["pre_close"] = code_node("pre_close", self.snippet("pre_close"), "close_router", [eq("do_transfer", "pc_next", "do_transfer")])
         tr = self._op_with_fields(["queue"]) or "transfer_to_agent"
         qf = next((f for f, sch in self.api.op(tr).fields.items() if sch.get("enum") and f != self.cid), "queue")
@@ -711,7 +787,9 @@ except Exception:
                 baked[rf] = r
             else:
                 omit = [rf]
-            nodes["close_" + k] = api_node("close_" + k, api_tool(self.api, cc, baked, omit=omit, post=self.hook_post_status("close_status", [], "Closed."), timeout_ms=WRITE_TIMEOUT_MS), "end_" + k, [])
+            # the close is retried once by the platform on an error: it is the last call and nothing is accepted after it,
+            # so a repeat after a success changes nothing in the ledger, while a lost close loses the whole case
+            nodes["close_" + k] = api_node("close_" + k, api_tool(self.api, cc, baked, omit=omit, post=self.hook_post_status("close_status", [], "Closed."), timeout_ms=WRITE_TIMEOUT_MS, retries=1), "end_" + k, [])
             nodes["end_" + k] = end_node("end_" + k, k)
 
         for n, cap, target in (("offer", 6, "wrap_up"), ("readback", 8, "wrap_up"), ("readback_again", 8, "wrap_up"), ("readback_llm", 8, "wrap_up"),

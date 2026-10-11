@@ -68,17 +68,35 @@ def _last_bd_of_week(d):
     return e
 
 
+PH = CONST.get('ph') or dict()
+
+
+def _ph(key, **kw):
+    # a fixed spoken line in the call's language; [name] placeholders are filled from kw
+    t = _s(PH.get(key))
+    for k in kw:
+        t = t.replace('[' + k + ']', _s(kw[k]))
+    return t
+
+
 def _fmt(d):
     if d is None:
         return ''
-    return WEEKDAYS[d.weekday()].capitalize() + ' ' + str(d.day) + ' ' + MONTHS[d.month - 1].capitalize() + ' ' + str(d.year)
+    wn = CAL.get('weekday_names') or [w.capitalize() for w in WEEKDAYS]
+    mn = CAL.get('month_names') or [m.capitalize() for m in MONTHS]
+    if CAL.get('date_order') == 'dmyw':
+        return str(d.day) + ' ' + mn[d.month - 1] + ' ' + str(d.year) + ' ' + wn[d.weekday()]
+    return wn[d.weekday()] + ' ' + str(d.day) + ' ' + mn[d.month - 1] + ' ' + str(d.year)
 
 
 def _amt(x):
     try:
-        return ('%.2f' % float(x))
+        t = ('%.2f' % float(x))
     except Exception:
         return _s(x)
+    if CAL.get('decimal') == ',':
+        t = t.replace('.', ',')
+    return t
 
 
 def _f(x, default=0.0):
@@ -272,7 +290,7 @@ def _apply_intent(key, resume_node):
         return 'wrap_up'
     if it.get('action_kind') == 'transfer' and _s(it.get('action_queue')):
         vars['transfer_queue'] = _s(it.get('action_queue'))
-        connect = 'I will connect you with the ' + _s(it.get('action_queue')) + ' team now.'
+        connect = _ph('connect', queue=_s(it.get('action_queue')))
         if not say or _is_prohibition(say):
             # nothing to say beyond the hand-over: a fixed line (no model call before the goodbye)
             _set_close(it.get('close_outcome'), it.get('close_reason'), '', connect)

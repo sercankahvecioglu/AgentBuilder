@@ -33,7 +33,7 @@ try:
         nxt = 'third_party'
     elif who == 'wrong_number':
         tp = CONST.get('third_party') or dict()
-        _set_close(tp.get('wrong_number_outcome'), tp.get('wrong_number_reason'), '', 'I apologise for the disturbance.')
+        _set_close(tp.get('wrong_number_outcome'), tp.get('wrong_number_reason'), '', _ph('apologise'))
         nxt = 'wrap_up'
     elif who == 'deceased':
         tp = CONST.get('third_party') or dict()
@@ -72,7 +72,7 @@ try:
     else:
         if asks >= mx:
             op = CONST.get('opening') or dict()
-            _set_close(op.get('unclear_outcome'), op.get('unclear_reason'), '', 'I could not confirm who is on the line.')
+            _set_close(op.get('unclear_outcome'), op.get('unclear_reason'), '', _ph('not_confirm'))
             nxt = 'wrap_up'
         else:
             vars['confirm_asks'] = str(asks + 1)

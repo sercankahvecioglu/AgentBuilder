@@ -19,7 +19,7 @@ try:
             n = _i(vars.get('id_declines')) + 1
             vars['id_declines'] = str(n)
             if n >= _i(idc.get('max_declines'), 2):
-                _set_close(idc.get('decline_outcome'), idc.get('decline_reason'), '', 'I cannot continue without the security check.')
+                _set_close(idc.get('decline_outcome'), idc.get('decline_reason'), '', _ph('no_security'))
                 nxt = 'wrap_up'
             else:
                 vars['id_hint'] = _s(idc.get('explain_once_text')) + ' Then ask the same question again.'

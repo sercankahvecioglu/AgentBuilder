@@ -25,13 +25,97 @@ def split_args(paths: list[str]) -> tuple[list[str], str]:
     return texts, api_path
 
 
+TEXT_SUFFIXES = (".md", ".txt", ".eml", ".csv", ".tsv", ".html", ".htm", ".json", ".yaml", ".yml", ".rst")
+DOC_SUFFIXES = (".docx", ".pdf", ".xlsx", ".xlsm")
+SKIP_NAMES = (".ds_store", "thumbs.db")
+
+
+def expand_inputs(paths: list[str]) -> list[str]:
+    """Directories become their readable files (sorted, recursive); unreadable types (images, archives) are left out."""
+    out: list[str] = []
+    for p in paths:
+        if os.path.isdir(p):
+            for root, dirs, files in os.walk(p):
+                dirs[:] = sorted(d for d in dirs if not d.startswith((".", "__")))
+                for fn in sorted(files):
+                    if fn.lower().startswith(".") or fn.lower() in SKIP_NAMES:
+                        continue
+                    if fn.lower().endswith(TEXT_SUFFIXES + DOC_SUFFIXES):
+                        out.append(os.path.join(root, fn))
+        else:
+            out.append(p)
+    return out
+
+
+def read_document(path: str) -> str:
+    """Text of one input file: Word, PDF and Excel are converted; everything else is read as text."""
+    low = path.lower()
+    if low.endswith(".docx"):
+        import docx  # python-docx
+
+        d = docx.Document(path)
+        lines = [para.text for para in d.paragraphs]
+        for t in d.tables:
+            for row in t.rows:
+                lines.append(" | ".join(c.text.strip() for c in row.cells))
+        return "\n".join(x for x in lines if x is not None)
+    if low.endswith(".pdf"):
+        from pypdf import PdfReader
+
+        r = PdfReader(path)
+        return "\n\n".join((pg.extract_text() or "") for pg in r.pages)
+    if low.endswith((".xlsx", ".xlsm")):
+        import openpyxl
+
+        wb = openpyxl.load_workbook(path, data_only=True, read_only=True)
+        lines = []
+        for ws in wb.worksheets:
+            lines.append(f"## sheet: {ws.title}")
+            for row in ws.iter_rows(values_only=True):
+                cells = ["" if v is None else str(v) for v in row]
+                if any(c.strip() for c in cells):
+                    lines.append(" | ".join(cells))
+        return "\n".join(lines)
+    with open(path, encoding="utf-8", errors="replace") as f:
+        return f.read()
+
+
 def load_text_inputs(paths: list[str]) -> str:
     parts = []
-    for p in paths:
-        with open(p, encoding="utf-8", errors="replace") as f:
-            body = f.read()
+    for p in expand_inputs(paths):
+        try:
+            body = read_document(p)
+        except Exception as e:  # noqa: BLE001 - one unreadable file must not stop the build
+            body = f"[could not read this file: {type(e).__name__}: {e}]"
         parts.append(f"<document name=\"{os.path.basename(p)}\">\n{body.strip()}\n</document>")
     return "\n\n".join(parts)
+
+
+def fetch_api(mock_url: str, dest: str) -> str:
+    """The tool API served by the mock itself at <mock_url>/openapi.json (the final: `build.py <case_folder> <mock_url>`).
+    Saved to `dest`; the server URL is set to the mock when the file gives none."""
+    import time
+    import urllib.request
+
+    base = mock_url.rstrip("/")
+    last = None
+    for wait in (0, 10, 20, 30):
+        if wait:
+            time.sleep(wait)
+        try:
+            req = urllib.request.Request(base + "/openapi.json", headers={"User-Agent": "Mozilla/5.0 (build-the-builder)"})
+            with urllib.request.urlopen(req, timeout=30) as r:
+                api = json.load(r)
+            break
+        except Exception as e:  # noqa: BLE001
+            last = e
+    else:
+        raise RuntimeError(f"could not fetch {base}/openapi.json: {last}")
+    if not (api.get("servers") or [{}])[0].get("url"):
+        api["servers"] = [{"url": base + ("/v1" if not base.endswith("/v1") else "")}]
+    with open(dest, "w", encoding="utf-8") as f:
+        json.dump(api, f, indent=1, ensure_ascii=False)
+    return dest
 
 
 def load_api(path: str) -> dict[str, Any]:
