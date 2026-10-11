@@ -136,5 +136,12 @@
     "change": "readback_llm node: the model answers the question, then reads back the exact line."
    }
   ]
+ },
+ {
+  "id": "ISS-013",
+  "title": "Persona glitch: the simulated customer leaked its reasoning ('thought ... Instructions: ...') into the message and hung up after two answers (asks_back PUB-03)",
+  "status": "open",
+  "evidence": "results/a-asks_back-4.json PUB-03, customer-ended-call at 8 s, slowest agent turn 1.2 s; the agent's turns were correct.",
+  "fix_history": []
  }
 ]
