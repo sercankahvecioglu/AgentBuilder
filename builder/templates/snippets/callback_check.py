@@ -8,7 +8,7 @@ try:
     nxt = 'third_party'
     ok = False
     if intent == 'wrong_number':
-        _set_close(tp.get('wrong_number_outcome'), tp.get('wrong_number_reason'), '', 'I apologise for the disturbance.')
+        _set_close(tp.get('wrong_number_outcome'), tp.get('wrong_number_reason'), '', _ph('apologise'))
         nxt = 'wrap_up'
     elif intent == 'deceased':
         sent = _s(tp.get('deceased_sentence'))
@@ -92,7 +92,7 @@ try:
         elif ok:
             vars['cb_date'] = d.isoformat()
             vars['cb_time'] = hhmm
-            vars['cb_text'] = _fmt(d) + ' at ' + hhmm
+            vars['cb_text'] = _ph('at_time', date=_fmt(d), time=hhmm)
             vars['cb_status'] = ''
             nxt = 'do_callback'
         else:
@@ -103,7 +103,7 @@ try:
                 vars['tp_hint'] = reason + ' Say that a callback is possible ' + days_txt + ' between ' + _s(tp.get('from_time')) + ' and ' + _s(tp.get('to_time')) + ', later than now, and ask once for another day and time.'
                 nxt = 'third_party'
             else:
-                _set_close(tp.get('no_callback_outcome'), tp.get('no_callback_reason'), '', 'No callback could be arranged.')
+                _set_close(tp.get('no_callback_outcome'), tp.get('no_callback_reason'), '', _ph('no_callback'))
                 nxt = 'wrap_up'
     if ok is not None or intent in ('wrong_number', 'deceased') or _intent(intent) is not None:
         vars['tp_next'] = nxt

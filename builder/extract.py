@@ -58,9 +58,10 @@ Rules
    `value_kind`: `parameter` when the slot can hold only one value (a limit, count, time, deadline, window end),
    `set_member` when the fact is one item of a list that may hold several (one holiday, one accepted phrase, one code,
    one product type, one outcome row), `none` when there is no value. One fact per list item.
-8. `agent_instruction`: what the phone agent must do, in plain imperative English, written so it can be pasted into the
-   agent's instructions as-is. "" for facts that are not agent-facing (definitions, variable tables, document metadata).
-   Where the document prescribes exact words, keep them verbatim inside the instruction.
+8. `agent_instruction`: what the phone agent must do, in plain imperative English whatever the documents' language,
+   written so it can be pasted into the agent's instructions as-is. "" for facts that are not agent-facing
+   (definitions, variable tables, document metadata). Where the document prescribes exact words, keep them verbatim,
+   in the documents' language, inside quotes in the instruction. `text` and `source_quote` stay in the documents' language.
 9. The tool API is the only way the agent acts. Facts that mention a tool, a field, a code or an enum value must use the
    exact API names. Do not invent tools, fields or codes that are not in the API or the documents.
 10. No outside knowledge. If the documents do not say it, there is no fact for it.
@@ -153,7 +154,17 @@ of governing facts. Code will generate the agent from your output without readin
    - `applies_to` = all, unless the documents describe several products per customer and say an intent concerns one of them.
    - `count_before_action`: the number of times the documents say the customer must repeat it ("says twice" = 2);
      "ask once whether you can help, then act if they insist" is `ask_once_first` true with count 1.
-   - `language`: the language name in English (e.g. "English"), not a code.
+   - `language`: the language name in English (e.g. "English", "Turkish"), not a code: the language the documents say the
+     calls are held in, else the language the documents are written in.
+   - Language of the text leaves: everything the agent SAYS verbatim (`opening.first_sentence`, `confirm_question`,
+     `accept_examples`, `nonconfirm_examples`, `identity.questions[].ask_text`, `debt_statement.intro_sentence`,
+     `negotiation.first_question`, `confirmation.confirm_question`, `recording.success_sentence`,
+     `third_party.deceased_sentence`, `required_phrases[].text`, `product_labels[].template`, `address_form`) is in
+     the call language, word for word from the documents where they prescribe wording. Everything that is an
+     INSTRUCTION to the agent (`say_text`, `ask_once_text`, `intro_instruction`, `fail_message`, `explain_once_text`,
+     `swapped.instruction`, `failure_say`, `change_after_record_text`, `trigger_description`, `when`,
+     `behaviour_rules[].agent_instruction`, `unresolved[].default_applied`) is written in English, keeping any words
+     the agent must say verbatim inside quotes in the call language.
    - `required_phrases[]`: every sentence or question the documents require verbatim (quoted wording), with the stage.
    - `behaviour_rules[]`: one entry for EVERY governing fact with a non-empty `agent_instruction`, with its stage,
      copying the fact's `agent_instruction` (keep required wording verbatim). Do this even when a closed field also
