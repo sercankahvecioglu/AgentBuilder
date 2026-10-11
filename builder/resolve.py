@@ -253,6 +253,9 @@ def resolve(ex: Extraction) -> Resolution:
         reps.sort(key=lambda f: f.id)
         winner = reps[0]
         for other in reps[1:]:
+            if _compatible(winner, other):
+                notes.append(f"conflict '{c.topic}': {winner.id} and {other.id} are compatible (restatement or addition); both govern")
+                continue
             winner, note = _beat(winner, other, c.topic, overrides, datecond, unresolved, losers, docs)
             if note:
                 notes.append(note)
@@ -265,6 +268,20 @@ def resolve(ex: Extraction) -> Resolution:
     governing = [f.id for f in ex.facts if f.kind != "discussion" and f.id not in losers]
     return Resolution(governing_ids=governing, dropped_discussion=dropped, overrides=overrides,
                       date_conditional=datecond, unresolved=unresolved, notes=notes)
+
+
+def _norm_val(v: str) -> str:
+    return re.sub(r"\s+", " ", v.strip().lower()).strip(" .;,")
+
+
+def _compatible(a: Fact, b: Fact) -> bool:
+    """Two facts listed as a conflict that can both be true: the same value (a restatement), or a set member
+    (one holiday, one code) next to a list or another member (an addition)."""
+    if _norm_val(a.value) and _norm_val(a.value) == _norm_val(b.value):
+        return True
+    if "set_member" in (a.value_kind, b.value_kind):
+        return True
+    return False
 
 
 def _beat(a: Fact, b: Fact, topic: str, overrides, datecond, unresolved, losers, docs: "_Docs | None" = None) -> tuple[Fact, str]:

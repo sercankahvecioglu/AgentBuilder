@@ -130,3 +130,14 @@ def test_later_input_document_breaks_a_tie():
     b = fact("F2", "no", topic="x", operator="", doc_label="two.md")
     r = resolve(Ex([a, b], [Conflict(topic="x", fact_ids=["F1", "F2"], note="")], [doc("one.md", "other"), doc("two.md", "other")]))
     assert r.governing_ids == ["F2"] and r.unresolved[0].how.startswith("later document")
+
+
+def test_restatement_and_addition_are_not_rivals():
+    pol = fact("F1", "once", topic="floor_offer", operator="count", doc_date="2026-06-15", text="offer the floor once and say the rest stays overdue")
+    memo = fact("F2", "once", topic="floor_offer", operator="count", doc_label="memo.md", doc_date="2026-09-20", text="keep offering the floor once")
+    r = resolve(Ex([pol, memo], [Conflict(topic="floor_offer", fact_ids=["F1", "F2"], note="memo restates")]))
+    assert sorted(r.governing_ids) == ["F1", "F2"] and not r.overrides
+    lst = fact("F3", "2026-12-24, 2026-12-25", topic="holidays", operator="", doc_date="2026-06-15")
+    add = fact("F4", "2026-11-02", topic="holidays", operator="", value_kind="set_member", doc_label="memo.md", doc_date="2026-09-20")
+    r = resolve(Ex([lst, add], [Conflict(topic="holidays", fact_ids=["F3", "F4"], note="memo adds a holiday")]))
+    assert sorted(r.governing_ids) == ["F3", "F4"] and not r.overrides
