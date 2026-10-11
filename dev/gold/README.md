@@ -16,6 +16,7 @@ Conventions worth knowing for Track A:
 - Every leaf is `{value, fact_ids}` (`S`/`I`/`B`), `{values, fact_ids}` (`L`) or `{outcome, reason, fact_ids}` (`Close`). A `reason` of `""` means the outcome table lists none (C7: no `reason` leaf in the close body).
 - `negotiation.attempts[].amount`: `full | floor | floor_if_full_refused`; `.date`: `last_business_day_this_week | deadline`; `.if_today_is_that_day`: `last_business_day_next_week`; `bands_allowed = []` means every band.
 - `special_intents[]`: `action_kind` `none | transfer | note`; `close_outcome = ""` plus `continue_call = true` means answer and continue (C12 answer-and-continue); `count_before_action = 2` means "says it twice"; `before_identity_close_*` overrides the close before identity is verified; `declined_close_*` is the close when the customer declines the offered action (`ask_once_first`), `""` meaning the call continues.
+- `special_intents[].precedence`: only the order the brief fixes is meaningful (hardship first = 10, everything else 50); the eval scores the order, not the numbers.
 - `multi_product`: when `enabled` is false the other leaves are placeholders and the eval ignores them.
 - `closing.aggregation.all_noted_as`: `[{reason: paid, outcome: paid}]` in B; `else_rule = first_non_paid_note_reason_in_order`.
 - `calendar.date_source = now`: all date math from the `now` call variable, never the real clock.

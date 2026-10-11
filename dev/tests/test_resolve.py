@@ -4,10 +4,10 @@ from builder.schema import Conflict, Extraction, Fact
 
 
 def fact(id, value, *, kind="decision", doc_label="policy.md", doc_date="", effective_from="", topic="callback_to",
-         operator="<=", stage="third_party", scope="", conditions="", text=None):
+         operator="<=", stage="third_party", scope="", conditions="", text=None, value_kind="parameter"):
     return Fact(id=id, text=text or f"callback window ends at {value}", agent_instruction="", source_quote=f"... {value} ...",
                 doc_label=doc_label, doc_date=doc_date, effective_from=effective_from, kind=kind, stage=stage,
-                topic=topic, scope=scope, conditions=conditions, exceptions="", operator=operator, value=value)
+                topic=topic, scope=scope, conditions=conditions, exceptions="", operator=operator, value=value, value_kind=value_kind)
 
 
 def test_newer_memo_wins():
@@ -87,3 +87,23 @@ def test_numbers_in_words_and_ordinals():
     assert numbers_in("from 10:00 to 19:00") == [10.0, 0.0, 19.0, 0.0]
     assert 21.0 in numbers_in("twenty-one days") and 250.0 in numbers_in("two hundred and fifty euros")
     assert numbers_in("ask once") == [1.0]
+
+
+def test_set_members_are_additive_even_when_listed_as_a_conflict():
+    hol = [fact(f"F{i}", d, topic="holiday", operator="", value_kind="set_member", doc_date="2026-06-15") for i, d in
+           enumerate(["2026-12-24", "2026-12-25", "2026-12-31"], 1)]
+    memo = fact("F9", "2026-11-02", topic="holiday", operator="", value_kind="set_member", doc_label="memo.md", doc_date="2026-09-20")
+    ex = Extraction(facts=hol + [memo], conflicts=[Conflict(topic="holiday", fact_ids=["F1", "F2", "F3", "F9"], note="memo adds a holiday")])
+    r = resolve(ex)
+    assert sorted(r.governing_ids) == ["F1", "F2", "F3", "F9"] and not r.unresolved and not r.overrides
+
+
+def test_same_document_facts_in_one_conflict_win_or_lose_together():
+    pol1 = fact("F1", "60", topic="band_max", operator="<=", doc_date="2026-06-15")
+    pol2 = fact("F2", "6", topic="band_deadline", operator="nth_business_day", doc_date="2026-06-15")
+    memo1 = fact("F3", "75", topic="band_max", operator="<=", doc_label="memo.md", doc_date="2026-09-20")
+    memo2 = fact("F4", "field team beyond day 75", topic="band_max", operator="", doc_label="memo.md", doc_date="2026-09-20")
+    ex = Extraction(facts=[pol1, pol2, memo1, memo2], conflicts=[Conflict(topic="band_max", fact_ids=["F1", "F3", "F4"], note="")])
+    r = resolve(ex)
+    assert sorted(r.governing_ids) == ["F2", "F3", "F4"]  # memo block wins; F3 and F4 never fight each other
+    assert not r.unresolved

@@ -65,7 +65,11 @@ def norm(v) -> str:
     s = s.strip(" .;:,'\"")
     s = re.sub(r"^(\d{1,2}):(\d{2}):00$", r"\1:\2", s)  # 10:00:00 -> 10:00
     s = re.sub(r"^(\d):(\d{2})$", r"0\1:\2", s)  # 9:00 -> 09:00
-    return s
+    return LANG.get(s, s)
+
+
+LANG = {"en": "english", "en-gb": "english", "en-us": "english", "de": "german", "fr": "french", "es": "spanish", "nl": "dutch",
+        "it": "italian", "pt": "portuguese", "sv": "swedish", "no": "norwegian", "da": "danish", "fi": "finnish", "pl": "polish"}
 
 
 def norm_phrase(v) -> str:
@@ -165,7 +169,8 @@ class Eval:
             return
         if isinstance(g, dict):
             if "fact_ids" in g and set(g) <= {"value", "fact_ids"}:
-                return self.leaf(path, g["value"], (c or {}).get("value") if isinstance(c, dict) else None, "value")
+                field = path.rsplit(".", 1)[-1]
+                return self.leaf(path, g["value"], (c or {}).get("value") if isinstance(c, dict) else None, field)
             if "fact_ids" in g and set(g) <= {"values", "fact_ids"}:
                 return self.leaf(path, g["values"], (c or {}).get("values") if isinstance(c, dict) else None, "values")
             for k, v in g.items():
@@ -212,6 +217,10 @@ class Eval:
     def leaf(self, path, g, c, field):
         if self.skip(path):
             return
+        if path.startswith("special_intents") and field == "key":
+            return self.add(path, "exact", intent_key({"key": g}) == intent_key({"key": c}), g, c)
+        if path.startswith("special_intents") and field == "precedence":
+            return  # ordinal: scored once for the whole list in precedence_order()
         if field in TEXT_FIELDS and isinstance(g, str):
             if g == "":
                 ok = norm(c) == ""
@@ -233,10 +242,6 @@ class Eval:
             except (TypeError, ValueError):
                 ok = False
             return self.add(path, "exact", ok, g, c)
-        if field == "key" and path.startswith("special_intents"):
-            return self.add(path, "exact", intent_key({"key": g}) == intent_key({"key": c}), g, c)
-        if field == "precedence" and path.startswith("special_intents"):
-            return  # ordinal: scored once for the whole list in precedence_order()
         gs, cs = norm(g), norm(c)
         if gs == "":
             ok = cs == ""

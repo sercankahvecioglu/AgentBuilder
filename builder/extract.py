@@ -55,6 +55,9 @@ Rules
    `conditions` when; `exceptions` when not. `operator` carries the comparison when there is one
    ('<=', '>=', '==', 'between', 'before', 'after', 'nth_business_day', 'count'). `value` holds the number, date, time,
    code or phrase the fact fixes, as a plain string (a count like "5", a time like "08:30", a date like "2030-01-15", a format like "YYYY-MM-DD", or a code from the tool API).
+   `value_kind`: `parameter` when the slot can hold only one value (a limit, count, time, deadline, window end),
+   `set_member` when the fact is one item of a list that may hold several (one holiday, one accepted phrase, one code,
+   one product type, one outcome row), `none` when there is no value. One fact per list item.
 8. `agent_instruction`: what the phone agent must do, in plain imperative English, written so it can be pasted into the
    agent's instructions as-is. "" for facts that are not agent-facing (definitions, variable tables, document metadata).
    Where the document prescribes exact words, keep them verbatim inside the instruction.
@@ -118,6 +121,12 @@ of governing facts. Code will generate the agent from your output without readin
      describe no combination.
    - `multi_product.enabled` false when the documents describe one product per customer; then fill the other
      multi_product leaves with false/1/[]/"" and cite the fact that says one product.
+   - `identity.swapped`: only when the identity tool's response in the tool API has a hint for swapped date parts;
+     otherwise hint_value "", instruction "", counts_as_wrong false.
+   - `applies_to` = all, unless the documents describe several products per customer and say an intent concerns one of them.
+   - `count_before_action`: the number of times the documents say the customer must repeat it ("says twice" = 2);
+     "ask once whether you can help, then act if they insist" is `ask_once_first` true with count 1.
+   - `language`: the language name in English (e.g. "English"), not a code.
    - `required_phrases[]`: every sentence or question the documents require verbatim (quoted wording), with the stage.
    - `behaviour_rules[]`: one entry for EVERY governing fact with a non-empty `agent_instruction`, with its stage,
      copying the fact's `agent_instruction` (keep required wording verbatim). Do this even when a closed field also

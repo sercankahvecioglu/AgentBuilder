@@ -70,6 +70,11 @@ class Fact(Strict):
         description="Comparison or relation if the fact carries one: '<=', '>=', '==', 'between', 'before', 'after', 'nth_business_day', ''."
     )
     value: str = Field(description="The number, date, time, code or phrase the fact fixes; '' if none.")
+    value_kind: Literal["parameter", "set_member", "none"] = Field(
+        description="parameter = a single setting that can hold only one value (a limit, a count, a time, a deadline); "
+        "set_member = one item of a list that may hold several (one holiday, one accepted phrase, one code, one product type); "
+        "none = no value."
+    )
 
 
 class Conflict(Strict):

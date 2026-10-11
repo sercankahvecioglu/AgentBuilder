@@ -775,7 +775,7 @@
    "before_identity_close_reason": "",
    "continue_call": false,
    "continue_other_products": true,
-   "precedence": 20,
+   "precedence": 50,
    "suppresses_persuasion": true,
    "customer_named_terms_still_recorded": false,
    "fact_ids": [
@@ -804,7 +804,7 @@
    "before_identity_close_reason": "",
    "continue_call": false,
    "continue_other_products": true,
-   "precedence": 20,
+   "precedence": 50,
    "suppresses_persuasion": true,
    "customer_named_terms_still_recorded": false,
    "fact_ids": [
@@ -833,7 +833,7 @@
    "before_identity_close_reason": "",
    "continue_call": false,
    "continue_other_products": false,
-   "precedence": 30,
+   "precedence": 50,
    "suppresses_persuasion": true,
    "customer_named_terms_still_recorded": false,
    "fact_ids": [
@@ -862,7 +862,7 @@
    "before_identity_close_reason": "",
    "continue_call": false,
    "continue_other_products": false,
-   "precedence": 30,
+   "precedence": 50,
    "suppresses_persuasion": false,
    "customer_named_terms_still_recorded": false,
    "fact_ids": [
@@ -891,7 +891,7 @@
    "before_identity_close_reason": "declined",
    "continue_call": false,
    "continue_other_products": false,
-   "precedence": 40,
+   "precedence": 50,
    "suppresses_persuasion": false,
    "customer_named_terms_still_recorded": false,
    "fact_ids": [
@@ -919,7 +919,7 @@
    "before_identity_close_reason": "",
    "continue_call": true,
    "continue_other_products": false,
-   "precedence": 90,
+   "precedence": 50,
    "suppresses_persuasion": false,
    "customer_named_terms_still_recorded": false,
    "fact_ids": [
@@ -947,7 +947,7 @@
    "before_identity_close_reason": "",
    "continue_call": true,
    "continue_other_products": false,
-   "precedence": 90,
+   "precedence": 50,
    "suppresses_persuasion": false,
    "customer_named_terms_still_recorded": false,
    "fact_ids": [
@@ -975,7 +975,7 @@
    "before_identity_close_reason": "",
    "continue_call": true,
    "continue_other_products": false,
-   "precedence": 90,
+   "precedence": 50,
    "suppresses_persuasion": false,
    "customer_named_terms_still_recorded": false,
    "fact_ids": [

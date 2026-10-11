@@ -80,7 +80,7 @@ def facts_from(parsed: dict[str, tuple[str, str]], doc_label: str) -> list[Fact]
     for fid, (quote, stage) in parsed.items():
         facts.append(Fact(id=fid, text=quote.split("\n")[0][:200], agent_instruction="", source_quote=quote, doc_label=doc_label,
                           doc_date="", effective_from="", kind="definition" if fid in ("A-S1", "A-S2", "IMPL") else "decision",
-                          stage=stage, topic=fid.lower().replace("-", "_"), scope="", conditions="", exceptions="", operator="", value=""))
+                          stage=stage, topic=fid.lower().replace("-", "_"), scope="", conditions="", exceptions="", operator="", value="", value_kind="none"))
     return facts
 
 

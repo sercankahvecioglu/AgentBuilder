@@ -160,6 +160,8 @@ def auto_conflicts(facts: list[Fact]) -> list[Conflict]:
     for f in facts:
         if f.kind != "decision" or not f.value.strip():
             continue
+        if f.value_kind == "set_member":
+            continue  # list items add up across documents; never an automatic conflict
         key = (f.topic.strip().lower(), f.stage, f.scope.strip().lower(), f.conditions.strip().lower(), f.operator.strip().lower())
         groups.setdefault(key, []).append(f)
     out = []
@@ -202,13 +204,30 @@ def resolve(ex: Extraction) -> Resolution:
             if cands:
                 notes.append(f"conflict '{c.topic}': only {cands[0].id} is a decision; it governs")
             continue
-        # pairwise tournament, deterministic order by id
-        cands.sort(key=lambda f: f.id)
-        winner = cands[0]
-        for other in cands[1:]:
+        # set members (one holiday, one phrase, one code) from several documents add up; they never replace each other
+        if all(f.value_kind == "set_member" for f in cands):
+            notes.append(f"conflict '{c.topic}': all facts are set members; additive, all govern ({', '.join(f.id for f in cands)})")
+            continue
+        # facts from the same document never fight each other: one representative per document, the block wins or loses together
+        blocks: dict[tuple, list[Fact]] = {}
+        for f in sorted(cands, key=lambda f: f.id):
+            blocks.setdefault((f.doc_label.strip().lower(), f.doc_date.strip()), []).append(f)
+        if len(blocks) < 2:
+            notes.append(f"conflict '{c.topic}': all facts come from one document; they are complementary, all govern")
+            continue
+        reps = [fs[0] for fs in blocks.values()]
+        reps.sort(key=lambda f: f.id)
+        winner = reps[0]
+        for other in reps[1:]:
             winner, note = _beat(winner, other, c.topic, overrides, datecond, unresolved, losers)
             if note:
                 notes.append(note)
+        # a losing representative takes its document's parameter facts in this conflict down with it; set members stay
+        for key, fs in blocks.items():
+            if fs[0].id in losers:
+                for f in fs[1:]:
+                    if f.value_kind != "set_member":
+                        losers.add(f.id)
     governing = [f.id for f in ex.facts if f.kind != "discussion" and f.id not in losers]
     return Resolution(governing_ids=governing, dropped_discussion=dropped, overrides=overrides,
                       date_conditional=datecond, unresolved=unresolved, notes=notes)
