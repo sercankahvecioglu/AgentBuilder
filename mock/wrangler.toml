@@ -1,0 +1,9 @@
+name = "freya-final-mock"
+main = "src/index.js"
+compatibility_date = "2026-09-01"
+
+# The ledger (one record per customer) lives in KV. Create the namespace once:
+#   wrangler kv namespace create LEDGER      -> paste the id below
+[[kv_namespaces]]
+binding = "LEDGER"
+id = "REPLACE_WITH_KV_NAMESPACE_ID"
