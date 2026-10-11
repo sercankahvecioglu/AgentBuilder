@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import pathlib
 import sys
 import time
@@ -42,24 +43,34 @@ def main(argv=None):
     ap.add_argument("--skip-static", action="store_true")
     ap.add_argument("--no-verify", action="store_true")
     a = ap.parse_args(argv)
-    api_path, inputs = None, []
+    api_path, inputs, mock_url = None, [], ""
     for i, x in enumerate(a.inputs):
-        if i == len(a.inputs) - 1 and x.lower().endswith((".json", ".yaml", ".yml")):
+        if x.lower().startswith(("http://", "https://")):
+            mock_url = x                      # final form: build.py <case_folder> <mock_url>
+        elif i == len(a.inputs) - 1 and x.lower().endswith((".json", ".yaml", ".yml")) and not os.path.isdir(x):
             api_path = x
         else:
             inputs.append(x)
-    if api_path is None:
-        sys.exit("the last argument must be the tool API file (.json or .yaml)")
     if not inputs and not a.spec:
-        sys.exit("give at least one brief file, or --spec")
-    slot = a.slot or (pathlib.Path(inputs[0]).stem if inputs else pathlib.Path(a.spec).stem.replace(".spec", ""))
+        sys.exit("give at least one brief file or folder, or --spec")
+    slot = a.slot or (pathlib.Path(inputs[0].rstrip("/")).stem if inputs else pathlib.Path(a.spec).stem.replace(".spec", ""))
     out = pathlib.Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
     sub = pathlib.Path(a.submission)
     sub.mkdir(parents=True, exist_ok=True)
     tr = Trace(str(sub / f"{slot}.trace.txt"), echo=True)
-    tr.start("python3 builder/build.py " + " ".join(sys.argv[1:] if argv is None else argv), inputs + [api_path])
+    tr.start("python3 builder/build.py " + " ".join(sys.argv[1:] if argv is None else argv), inputs + ([api_path] if api_path else []) + ([mock_url] if mock_url else []))
     tr.kv("slot", slot)
+    if mock_url and api_path is None:
+        from builder.inputs import fetch_api
+        try:
+            api_path = fetch_api(mock_url, str(out / f"{slot}.tool_api.json"))
+            tr.kv("tool API fetched from", mock_url.rstrip("/") + "/openapi.json")
+        except Exception as e:
+            tr.end("no-agent")
+            sys.exit(f"the mock at {mock_url} does not serve /openapi.json: {e}")
+    if api_path is None:
+        sys.exit("give the tool API: a .json/.yaml file as the last argument, or the mock URL (it must serve /openapi.json)")
     t0 = time.time()
     saved = None
     status = "ok"
@@ -75,6 +86,9 @@ def main(argv=None):
             tr.section("2-5 extract, resolve, fill, verify")
             from builder.extract import extract
             from builder.inputs import api_summary, load_api, load_text_inputs
+            from builder.inputs import expand_inputs
+            files = expand_inputs(inputs)
+            tr.kv("input files", ", ".join(os.path.basename(f) for f in files)[:600])
             brief = load_text_inputs(inputs)
             tr.kv("input characters", len(brief))
             api_sum = api_summary(load_api(api_path))
