@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Track B eval loop: extract A, A+B and the raw mock, then score each against its gold and run verify.
-# Needs ANTHROPIC_API_KEY (or a Claude login) in the environment. Run from the repo root:
+# Needs a Claude login (claude.ai subscription, Agent SDK backend) or ANTHROPIC_API_KEY (API backend). Run from the repo root:
 #   source .env; bash dev/run_extract_eval.sh [effort]
 set -uo pipefail
 PY=${PY:-/opt/anaconda3/envs/freyahackathon/bin/python}
