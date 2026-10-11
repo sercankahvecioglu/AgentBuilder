@@ -76,6 +76,9 @@ try:
     def _propose(q, amount, d, why=''):
         if _s(vars.get('prop_all')) == '1' and why.find('for all products') < 0:
             vars['prop_all'] = ''
+        # a new question gets a fresh cut-off budget
+        q['frag_nv'] = 0
+        q['frag_count'] = 0
         q['prop_amount'] = float(amount)
         q['prop_date'] = d.isoformat()
         lab = (' for the ' + _s(q.get('label'))) if MULTI else ''
@@ -217,7 +220,7 @@ try:
     if p is not None and cut_value and _i(p.get('frag_count')) < 2:
         p['frag_count'] = _i(p.get('frag_count')) + 1
         pay = '__cut__'
-    elif p is not None and frag and pay in ('no_answer', 'none', '') and amt_said <= 0 and kind == 'none' and _i(p.get('frag_nv')) < 3:
+    elif p is not None and frag and pay in ('no_answer', 'none', '') and amt_said <= 0 and kind == 'none' and _i(p.get('frag_nv')) < 5:
         # a cut-off turn with nothing in it: let the customer finish, without using the non-answer budget
         p['frag_nv'] = _i(p.get('frag_nv')) + 1
         pay = '__cut__'
@@ -356,6 +359,7 @@ try:
             vars['week_ctx'] = _s(vars.get('d_week_said'))
             if NEG.get('vague_ask_once', True) and not p.get('vague_asked'):
                 p['vague_asked'] = 1
+                p['frag_nv'] = 0
                 hint = 'Which exact day would that be?'
             else:
                 dl = _deadline(p)

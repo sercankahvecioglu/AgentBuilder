@@ -63,7 +63,7 @@ try:
             op = CONST.get('opening') or dict()
             _set_close(op.get('unclear_outcome'), op.get('unclear_reason'), 'Answer the question briefly. Say you could not confirm who is on the line.')
             nxt = 'wrap_up'
-    elif frag and _i(vars.get('opening_frag')) < 2:
+    elif frag and _i(vars.get('opening_frag')) < 3:
         # a cut-off reply is heard again before it counts as an ask
         vars['opening_frag'] = str(_i(vars.get('opening_frag')) + 1)
         vars['opening_hint'] = 'The reply was cut off. Ask the confirmation question again, exactly as before.'

@@ -31,7 +31,7 @@ try:
             hhmm = ('%02d:%s' % (int(m.group(1)), m.group(2)))
         frag = _s(vars.get('fragment')).lower() == 'yes'
         vars['fragment'] = 'no'
-        if frag and _i(vars.get('cb_noinfo')) < 2:
+        if frag and _i(vars.get('cb_noinfo')) < 4:
             # a cut-off turn: whatever day or time it carries is probably incomplete; hear it whole first
             kind, d, hhmm = 'none', None, ''
         pend = _d(vars.get('cb_pending_day'))
@@ -78,7 +78,7 @@ try:
             # ask for the missing part, up to twice, before the window rule applies
             n = _i(vars.get('cb_noinfo')) + 1
             vars['cb_noinfo'] = str(n)
-            if n <= 2:
+            if n <= 4:
                 if kind == 'date' and d is not None:
                     vars['tp_hint'] = 'The person named ' + _fmt(d) + ' but no time. Ask at what time on that day the customer can be reached.'
                 elif hhmm:

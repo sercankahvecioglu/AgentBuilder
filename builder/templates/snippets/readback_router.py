@@ -9,7 +9,7 @@ try:
     nxt = 'readback'
     frag = _s(vars.get('fragment')).lower() == 'yes'
     vars['fragment'] = 'no'
-    if frag and rb != 'confirms' and _i(vars.get('rb_asks')) < 2:
+    if frag and rb != 'confirms' and _i(vars.get('rb_asks')) < 4:
         # a cut-off answer to the read-back is not a change or a refusal: ask again for a clear answer
         rb = 'none'
     if rb == 'confirms':
@@ -44,7 +44,7 @@ try:
     else:
         n = _i(vars.get('rb_asks')) + 1
         vars['rb_asks'] = str(n)
-        if n >= 3:
+        if n >= 5:
             vars['nego_cmd'] = 'no_answer'
             vars['stage'] = 'negotiation'
             _reset_date_parts()
