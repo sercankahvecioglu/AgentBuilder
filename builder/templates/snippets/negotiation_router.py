@@ -25,6 +25,7 @@ try:
     kind, dsaid = _resolve_date(today)
     amt_said = _f(vars.get('amount_said'), 0.0)
     dom_said = _i(vars.get('d_dom'))
+    week_said = _s(vars.get('d_week')).lower()
     if amt_said > 0 and dom_said > 0 and abs(amt_said - dom_said) < 0.5:
         amt_said = 0.0
     if amt_said > 0 and amt_said < 32 and _s(vars.get('d_ref')).lower() in ('day_of_month', 'weekday'):
@@ -222,7 +223,9 @@ try:
         p['none_count'] = 0
     # a cut-off turn that carries a number or a day ("I can pay the full 45", "the 11th, sorry, I mean"): the value is
     # probably incomplete, so ask once or twice to hear it whole instead of acting on it (never counts as an attempt)
-    cut_value = frag and (amt_said > 0 or kind in ('date', 'vague')) and pay in ('yes_today', 'accepts_offer', 'proposes', 'too_much', 'vague')
+    it_cut = _intent(pay)
+    cut_value = frag and ((amt_said > 0 or kind in ('date', 'vague')) and pay in ('yes_today', 'accepts_offer', 'proposes', 'too_much', 'vague')
+                          or (it_cut is not None and not it_cut.get('continue_call')))
     if p is not None and cut_value and _i(p.get('frag_count')) < 2:
         p['frag_count'] = _i(p.get('frag_count')) + 1
         pay = '__cut__'
@@ -233,6 +236,11 @@ try:
     if p is not None and pay == 'yes_today' and _s(p.get('prop_date')) and _s(p.get('prop_date')) != today.isoformat() and kind != 'date':
         # a plain yes while a proposal for another day is pending accepts that proposal
         pay = 'accepts_offer'
+    if p is not None and pay == 'accepts_offer' and kind == 'date' and dsaid is not None and _d(p.get('prop_date')) is not None:
+        pd = _d(p.get('prop_date'))
+        if dsaid != pd and dsaid.weekday() == pd.weekday() and dom_said <= 0 and week_said in ('', 'none'):
+            # "yes, on Friday" names the proposal's weekday without a week or a date: it is the proposal, not another week
+            dsaid = pd
     if p is None:
         nxt, hint = 'wrap_up', ''
     elif pay == '__cut__':
