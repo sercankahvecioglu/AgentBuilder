@@ -2,8 +2,12 @@ name = "freya-final-mock"
 main = "src/index.js"
 compatibility_date = "2026-09-01"
 
-# The ledger (one record per customer) lives in KV. Create the namespace once:
-#   wrangler kv namespace create LEDGER      -> paste the id below
-[[kv_namespaces]]
-binding = "LEDGER"
-id = "REPLACE_WITH_KV_NAMESPACE_ID"
+# One Durable Object per customer holds that customer's record: strongly consistent, so a tool call always sees the
+# previous one (KV is only eventually consistent across edge locations).
+[[durable_objects.bindings]]
+name = "CUSTOMER"
+class_name = "Customer"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Customer"]

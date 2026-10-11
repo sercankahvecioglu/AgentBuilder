@@ -3,7 +3,7 @@
 //   GET  /openapi.json                 the tool API the builder reads
 //   POST <base_path>/practice/sessions {case} -> {variables}   a fresh customer for a test run (tools/run_cases.py)
 //   GET  <base_path>/practice/ledger/<customer_id>             what was recorded
-// State: one KV record per customer_id.
+// State: one Durable Object per customer_id (strongly consistent).
 import { BANK, TOOLS, PRODUCTS_FIELD, CUSTOMERS } from "./contract.js";
 
 const JSON_HEADERS = { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" };
@@ -36,13 +36,30 @@ export default {
   },
 };
 
-// ---------------------------------------------------------------- state
+// ---------------------------------------------------------------- state (one Durable Object per customer)
+export class Customer {
+  constructor(state) { this.state = state; }
+  async fetch(request) {
+    const url = new URL(request.url);
+    if (url.pathname === "/load") {
+      const st = await this.state.storage.get("st");
+      return new Response(JSON.stringify(st || null), { headers: JSON_HEADERS });
+    }
+    if (url.pathname === "/save") {
+      const st = await request.json();
+      await this.state.storage.put("st", st);
+      return new Response("{}", { headers: JSON_HEADERS });
+    }
+    return new Response("not found", { status: 404 });
+  }
+}
+function stubOf(env, cid) { return env.CUSTOMER.get(env.CUSTOMER.idFromName(String(cid))); }
 async function load(env, cid) {
-  const raw = await env.LEDGER.get("cust:" + cid);
-  return raw ? JSON.parse(raw) : null;
+  const r = await stubOf(env, cid).fetch("https://do/load");
+  return await r.json();
 }
 async function save(env, st) {
-  await env.LEDGER.put("cust:" + st.customer_id, JSON.stringify(st), { expirationTtl: 60 * 60 * 24 * 14 });
+  await stubOf(env, st.customer_id).fetch("https://do/save", { method: "POST", body: JSON.stringify(st) });
 }
 function freshState(cid, cust, caseId) {
   return {
