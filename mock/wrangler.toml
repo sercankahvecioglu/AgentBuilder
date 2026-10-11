@@ -2,7 +2,11 @@ name = "freya-final-mock"
 main = "src/index.js"
 compatibility_date = "2026-09-01"
 
-# the earlier version kept state in a Durable Object; this one is stateless
+# migration history: an earlier version kept state in a Durable Object class; this version is stateless
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Customer"]
+
 [[migrations]]
 tag = "v2"
 deleted_classes = ["Customer"]
