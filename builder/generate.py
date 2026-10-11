@@ -100,7 +100,8 @@ def conv_node(name: str, task: str, transitions: List[dict], extraction: List[di
 
 
 def ev(name: str, values: List[str], desc: str) -> dict:
-    return {"name": name, "type": "string", "enum_values": values, "description": desc, "min_confidence": MIN_CONF}
+    # an intent the spec names may coincide with a built-in value (deceased, wrong_number): one entry, in order
+    return {"name": name, "type": "string", "enum_values": list(dict.fromkeys(values)), "description": desc, "min_confidence": MIN_CONF}
 
 
 def row_key(outcome: str, reason: str) -> str:
