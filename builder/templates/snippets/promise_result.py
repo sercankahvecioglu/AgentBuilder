@@ -14,6 +14,10 @@ try:
             promised = _load('promised_json', [])
             promised.append(dict(id=_s(p.get('id')), amount=_f(p.get('agreed_amount')), date=_s(p.get('agreed_date'))))
             _save('promised_json', promised)
+            if not _s(vars.get('transfer_queue')):
+                vars['close_key'] = _s((CONST.get('closing') or dict()).get('promise_key'))
+                vars['goodbye_prefix'] = ''
+                vars['goodbye_say'] = ''
         nxt = 'promise_guard'
         more = False
         for row in table:

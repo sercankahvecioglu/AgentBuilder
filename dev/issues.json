@@ -156,5 +156,29 @@
   "status": "open",
   "evidence": "results/a-asks_back-4.json PUB-03, customer-ended-call at 8 s, slowest agent turn 1.2 s; the agent's turns were correct.",
   "fix_history": []
+ },
+ {
+  "id": "ISS-014",
+  "title": "Platform: code sandbox returned 'did not return a parseable result' for every code node after the recorded line in one call; a recorded promise was then closed as refused (wrap_up never applied)",
+  "status": "mitigated",
+  "evidence": "results/mock-asks_back-1.json PUB-06 at 05:50 UTC; 0 of 40 other calls that night; variable table 12 KB / 300 keys, same as passing calls. PUB-08 in the same run: 'The model returned no speakable content' twice after a re-entry, customer hung up.",
+  "fix_history": [
+   {
+    "at": "2026-10-11 05:58 UTC",
+    "change": "promise_result sets close_key to the promise row (and clears the goodbye prefix) the moment a promise is recorded, so a later code failure cannot turn it into a refusal; wrap_up only refines."
+   }
+  ]
+ },
+ {
+  "id": "ISS-015",
+  "title": "asks_back PUB-03: a wrong date given together with 'what is this for?' was routed as a question and never verified, so three wrong answers counted as two and the fourth (correct) date verified",
+  "status": "tentatively-fixed",
+  "evidence": "results/mock-asks_back-1.json PUB-03 call.",
+  "fix_history": [
+   {
+    "at": "2026-10-11 05:58 UTC",
+    "change": "id_reply description: a message that contains an answer is 'none' even alongside a question; identity prompt: call the tool with the answer first, answer the question after the result."
+   }
+  ]
  }
 ]

@@ -481,6 +481,7 @@ except Exception:
                     "If the customer gives the answer in parts over several turns, combine the parts into one answer and call the tool as soon as the answer is complete; do not ask for parts you already have. "
                     "Only the tool decides whether an answer is right: never say an answer is wrong, never say the check has failed, never say goodbye or end the conversation yourself, and never send the customer elsewhere unless what_to_do_next says so. "
                     "If the customer talks about something else or their sentence seems cut off, say in a few words that you are listening and ask the question again. "
+                    "If the customer asks something and also gives the answer in the same turn, CALL the tool with the answer first; answer their question in the turn after the tool result. "
                     f"{id_rules}\nAfter the tool result, do exactly what its what_to_do_next says.")
             tool = api_tool(self.api, vq, {self.cid: "{{" + self.cid + "}}", field_name: q.api_field},
                             description=f"Check the customer's answer to security question {i + 1} ({q.api_field}). CALL it every time the customer gives an answer to this question, with the answer converted to: {q.answer_format}.",
@@ -490,7 +491,7 @@ except Exception:
             trans = [eq("id_locked", flag, "locked"), eq(nxt, flag, "verified"),
                      anyof("id_router", "id_reply", ["declines", "asks_purpose", "asks_why", "chatter"] + id_keys, "the customer did not answer the question")]
             ex = [ev("id_reply", ["declines", "asks_purpose", "asks_why", "chatter"] + id_keys + ["none"],
-                     "Based only on the customer's latest message: declines: they refuse to answer the security question; asks_purpose: they ask what the call or the account is about instead of answering; asks_why: they ask why the agent needs this answer or what it is for, without refusing; chatter: they talk about something else (their day, work, traffic, family) or the message is cut off, and give no answer at all; "
+                     "Based only on the customer's latest message: declines: they refuse to answer the security question; asks_purpose: they ask what the call or the account is about instead of answering; asks_why: they ask why the agent needs this answer or what it is for, without refusing; chatter: they talk about something else (their day, work, traffic, family) or the message is cut off, and give no answer at all; none: the message contains an answer to the security question (a date, digits, a code), even alongside a question or chatter; "
                      + self.intent_desc(id_keys) + " none: they answered the question, asked how to answer, or said something else.")]
             n = conv_node(f"identity_q{i}", task, trans, extraction=ex, tools=[tool], max_turns=10, cap_target="id_cap")
             nodes[f"identity_q{i}"] = n
