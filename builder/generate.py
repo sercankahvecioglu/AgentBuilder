@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import pathlib
+import re
 from typing import Dict, List
 
 from .openapi_tools import Api, api_tool, numeric_fields
@@ -91,6 +92,21 @@ def ev(name: str, values: List[str], desc: str) -> dict:
 
 def row_key(outcome: str, reason: str) -> str:
     return outcome + ("__" + reason if reason else "")
+
+
+IMPERATIVE = re.compile(r"^(say|state|tell|mention|announce|introduce|explain|inform|greet|open|start|begin|ask|make|give|confirm)\b", re.I)
+LANG_NAMES = {"en": "English", "de": "German", "fr": "French", "es": "Spanish", "it": "Italian", "nl": "Dutch", "pt": "Portuguese", "tr": "Turkish", "sv": "Swedish", "da": "Danish", "no": "Norwegian", "fi": "Finnish", "pl": "Polish"}
+
+
+def is_instruction(text: str) -> bool:
+    """True when an extracted 'sentence' is an instruction to the agent rather than words to speak."""
+    s = (text or "").strip()
+    return bool(IMPERATIVE.match(s)) and (" you " in f" {s.lower()} " or " that " in f" {s.lower()} " or s.lower().startswith(("say ", "tell ", "explain ", "mention ", "state ")))
+
+
+def lang_name(x: str) -> str:
+    x = (x or "").strip()
+    return LANG_NAMES.get(x.lower(), x) if len(x) <= 3 else x
 
 
 def tv(x):
@@ -356,7 +372,7 @@ except Exception:
         glob = [b.agent_instruction for b in s.behaviour_rules if b.stage == "global"]
         cont = [f"If {it.trigger_description[0].lower() + it.trigger_description[1:]} {it.say_text}".replace("..", ".") for it in s.special_intents if it.continue_call and it.say_text]
         lines = [
-            f"You are {tv(s.agent_self_description)}, on an outbound phone call. Speak {tv(s.language)}.",
+            f"You are {tv(s.agent_self_description)}, on an outbound phone call. Speak {lang_name(tv(s.language))}.",
             "Keep every turn to one or two short sentences. Ask one question at a time. Be polite and plain.",
             "Facts, amounts and dates you may state come only from the current task text and from tool results. Never invent figures, dates or reasons.",
             "Never say that anything was recorded, scheduled, booked or done unless a tool result in this conversation says it succeeded. If a tool result says it failed, say so honestly.",
@@ -380,10 +396,15 @@ except Exception:
         addr = tv(s.roles.address_form).replace("{", "{{").replace("}", "}}")
         confirm_q = tv(s.opening.confirm_question).replace("{", "{{").replace("}", "}}")
         first = tv(s.opening.first_sentence)
+        first_is_instr = is_instruction(first) or not first.strip()
+        if first_is_instr:
+            first_rule = (first.strip() or "Say the opening sentence") + f" (it must contain: {', '.join(tv(s.opening.required_elements))})"
+        else:
+            first_rule = f"say exactly: \"{first}\""
 
         # 1 opening
         opening_task = (
-            f"You have just started the call. If you have not yet said the opening sentence, say exactly: \"{first}\" and then ask exactly: \"{confirm_q}\".\n"
+            f"You have just started the call. If you have not yet said the opening sentence, {first_rule} and then ask exactly: \"{confirm_q}\".\n"
             f"{{{{opening_hint}}}}\n"
             f"Only these count as confirmation: {', '.join(tv(s.opening.accept_examples))}. These do not: {', '.join(tv(s.opening.nonconfirm_examples))}.\n"
             f"Before identity is verified never mention: {', '.join(tv(s.opening.forbidden_before_identity))}. If asked why you call, say you can explain once you have confirmed who you are speaking with.\n"
@@ -397,7 +418,7 @@ except Exception:
                     + self.intent_desc(who_keys) + " unclear: hello, go ahead or anything that does not confirm. none: nothing relevant.")
         nodes["opening"] = conv_node("opening", opening_task, [always("route_opening")],
                                      extraction=[ev("who", who_vals, who_desc)],
-                                     on_enter={"type": "tts", "text": f"{first} {confirm_q}"}, first_only=True)
+                                     on_enter=({"type": "llm"} if first_is_instr else {"type": "tts", "text": f"{first} {confirm_q}"}), first_only=True)
         nodes["route_opening"] = code_node("route_opening", self.snippet("route_opening"), "opening",
                                            [eq("identity_start", "opening_next", "identity_start"), eq("third_party", "opening_next", "third_party"),
                                             eq("wrap_up", "opening_next", "wrap_up"), eq("offer", "opening_next", "offer"), eq("resume_router", "opening_next", "resume_router")])
@@ -505,7 +526,7 @@ except Exception:
         conf = s.confirmation
         rb_task = ("Read the agreed promise back exactly from this list, naming the product, the amount and the day: {{readback_text}}. "
                    f"Then ask exactly: \"{tv(conf.confirm_question)}\"\n{{{{rb_hint}}}}\n{self.stage_rules('confirmation')}\nNo tool call is allowed in this step.")
-        rb_tts = {"type": "tts", "text": "To confirm: {{readback_text}}. " + tv(conf.confirm_question)}
+        rb_tts = {"type": "llm"} if is_instruction(tv(conf.confirm_question)) else {"type": "tts", "text": "To confirm: {{readback_text}}. " + tv(conf.confirm_question)}
         rb_keys = self.intent_values(before_identity=False)
         rb_vals = ["confirms", "changes", "refuses"] + rb_keys + ["asks_question", "none"]
         nodes["readback"] = conv_node("readback", rb_task, [always("readback_router")],
@@ -534,9 +555,15 @@ except Exception:
                                             [eq("do_promise", "prs_next", "do_promise"), eq("promise_guard", "prs_next", "promise_guard"), eq("say_recorded", "prs_next", "say_recorded")])
         rec = s.recording
         recorded_tts = f"Thank you. Your promise is recorded. {tv(rec.success_sentence)} {tv(s.closing.goodbye_instruction) if hasattr(s.closing, 'goodbye_instruction') else ''}".strip()
-        recorded_tts = f"Thank you, your promise is recorded. {tv(rec.success_sentence)} Thank you for your time and goodbye."
-        nodes["say_recorded"] = conv_node("say_recorded", "The promise was recorded and you have said goodbye. If the customer asks to change the recorded promise: " + tv(conf.change_after_record_text) + " Otherwise say goodbye again in a few words. No tool call is allowed.",
-                                          [always("after_recorded")], on_enter={"type": "tts", "text": recorded_tts}, first_only=True)
+        succ = tv(rec.success_sentence)
+        if is_instruction(succ):
+            rec_enter = {"type": "llm"}
+            rec_task = (f"The promise has just been recorded successfully (the tool returned ok). Say that it is recorded. {succ} Then thank the customer for their time and say goodbye in one short sentence. "
+                        "If the customer later asks to change the recorded promise: " + tv(conf.change_after_record_text) + " No tool call is allowed.")
+        else:
+            rec_enter = {"type": "tts", "text": f"Thank you, your promise is recorded. {succ} Thank you for your time and goodbye."}
+            rec_task = "The promise was recorded and you have said goodbye. If the customer asks to change the recorded promise: " + tv(conf.change_after_record_text) + " Otherwise say goodbye again in a few words. No tool call is allowed."
+        nodes["say_recorded"] = conv_node("say_recorded", rec_task, [always("after_recorded")], on_enter=rec_enter, first_only=True)
         nodes["after_recorded"] = code_node("after_recorded", self.const_text + self.prelude + "\ntry:\n    vars['goodbye_done'] = 'yes'\nexcept Exception:\n    pass\n", "wrap_up", [])
 
         # 8 offers (ask_once_first intents)

@@ -35,7 +35,9 @@ try:
     elif who == 'deceased':
         tp = CONST.get('third_party') or dict()
         sent = _s(tp.get('deceased_sentence'))
-        pre = ("Say exactly: '" + sent + "'" if sent else 'Express condolences in one sentence.') + ' Ask nothing else.'
+        low = sent.lower().strip()
+        instr = low.startswith(('say ', 'tell ', 'express ', 'state ', 'offer '))
+        pre = (sent if instr else ("Say exactly: '" + sent + "'" if sent else 'Express condolences in one sentence.')) + ' Ask nothing else.'
         _set_close(tp.get('deceased_outcome'), tp.get('deceased_reason'), pre)
         nxt = 'wrap_up'
     elif _intent(who) is not None and not (_intent(who) or dict()).get('continue_call'):
