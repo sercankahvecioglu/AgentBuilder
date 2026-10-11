@@ -358,7 +358,10 @@ except Exception:
                 + self.intent_desc(keys) + " asks_question: a question to the agent that none of the above covers. none: nothing about paying.")
         pay = ev("pay", values, desc)
         pay["min_confidence"] = 0.4
-        return [pay] + self.date_parts("the payment") + [self.amount_part()] + self.scope_parts()
+        ask_keys = [it.key for it in self.spec.special_intents if it.continue_call]
+        asks = ev("asks", ask_keys + ["other_question", "none"],
+                  "A question the customer asks the agent in the latest message in addition to anything about paying: " + self.intent_desc(ask_keys) + " other_question: any other question to the agent; none: no question.")
+        return [pay, asks] + self.date_parts("the payment") + [self.amount_part()] + self.scope_parts()
 
     def scope_parts(self) -> List[dict]:
         if not self.multi:
@@ -510,7 +513,12 @@ except Exception:
         debt_task = (f"The customer is verified. {tv(s.debt_statement.intro_instruction)} State each late product with its figures, one sentence per product, from this list and nothing else:\n{{{{debt_text}}}}\n"
                      f"Then ask exactly: \"{tv(neg.first_question)}\"" + (" (about all products together)" if self.multi else "") + ".\n"
                      "Do not ask how much the customer can pay. No tool call is allowed in this step.")
-        nodes["state_debt"] = conv_node("state_debt", debt_task, [always("negotiation_router")], extraction=self.pay_schema())
+        intro = tv(getattr(s.debt_statement, "intro_sentence", "")) or ""
+        if intro.strip() and not is_instruction(intro) and not is_instruction(tv(neg.first_question)):
+            debt_enter = {"type": "tts", "text": f"{intro} {{{{debt_text}}}} {tv(neg.first_question)}"}
+        else:
+            debt_enter = {"type": "llm"}
+        nodes["state_debt"] = conv_node("state_debt", debt_task, [always("negotiation_router")], extraction=self.pay_schema(), on_enter=debt_enter, first_only=True)
         nego_task = ("You are agreeing a payment promise for: {{cur_label}}.\n{{date_facts}}\n"
                      "Instruction for this turn: {{nego_hint}}\n"
                      "Say only what the instruction asks, in one or two sentences, then wait for the answer. Never ask how much the customer can pay; you propose every amount. "

@@ -260,6 +260,26 @@ try:
             nxt, hint = _with_date(p, d, amount)
             if nxt == 'agreed':
                 nxt, hint = _after_agree()
+    elif pay == 'accepts_offer' and ((kind == 'date' and dsaid is not None and dsaid.isoformat() != _s(p.get('prop_date'))) or (amt_said > 0 and abs(amt_said - _f(p.get('prop_amount'))) > 0.005)):
+        # the customer named a day or an amount that differs from the proposal: treat it as their own proposal
+        amount = _default_amount(p)
+        if amt_said > 0 and amt_said >= _f(p.get('floor')) - 0.005:
+            amount = min(amt_said, _f(p.get('past_due')))
+            p['pending_amount'] = amount
+        elif amt_said > 0:
+            nxt, hint = (_offer_floor(p, 'An amount below the minimum of ' + _amt(p.get('floor')) + ' cannot be recorded.') if not p.get('floor_offered') else _next_attempt(p, 'I understand.'))
+            kind = 'handled'
+        if kind == 'date' and dsaid is not None:
+            if MULTI and scope == 'all' and len(_open_idx()) > 1:
+                res = _agree_all(dsaid)
+                nxt, hint = res if res else _after_agree()
+            else:
+                nxt, hint = _with_date(p, dsaid, amount)
+                if nxt == 'agreed':
+                    nxt, hint = _after_agree()
+        elif kind != 'handled':
+            _agree(p, amount, _d(p.get('prop_date')) or _next_bd(today))
+            nxt, hint = _after_agree()
     elif pay == 'accepts_offer':
         if MULTI and _s(vars.get('prop_all')) == '1' and _d(p.get('prop_date')) is not None:
             res = _agree_all(_d(p.get('prop_date')))
@@ -355,6 +375,14 @@ try:
         vars['stage'] = 'readback'
     instr = _s(vars.get('nego_instruction'))
     vars['nego_instruction'] = ''
+    asked = _s(vars.get('asks')).lower()
+    vars['asks'] = 'none'
+    if asked and asked != 'none' and nxt == 'negotiate' and not instr:
+        ait = _intent(asked)
+        if ait is not None and _s(ait.get('say_text')):
+            instr = 'The customer also asked a question. ' + _s(ait.get('say_text'))
+        else:
+            instr = 'The customer also asked a question. Answer it briefly from the facts you have; if you do not have the information, say so.'
     if nxt == 'negotiate':
         if instr:
             vars['nego_hint'] = instr + (" Then say exactly: '" + hint + "'" if hint else '')

@@ -456,6 +456,12 @@
     "A-R17"
    ]
   },
+  "intro_sentence": {
+   "value": "I am calling from the collections team about a late payment.",
+   "fact_ids": [
+    "A-R17"
+   ]
+  },
   "product_labels": [
    {
     "product_type": "credit_card",

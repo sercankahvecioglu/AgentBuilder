@@ -80,17 +80,17 @@ try:
     lines = []
     inc = CONST.get('debt_include') or ['past_due', 'days_late']
     for row in table:
-        parts = [row['label']]
+        parts = []
         if 'past_due' in inc:
-            parts.append('past-due amount ' + _amt(row['past_due']))
+            parts.append('has a past-due amount of ' + _amt(row['past_due']))
         if 'days_late' in inc:
-            parts.append(str(row['days_late']) + ' days late')
+            parts.append('is ' + str(row['days_late']) + ' days late')
         if 'floor' in inc:
-            parts.append('minimum ' + _amt(row['floor']))
+            parts.append('has a minimum payment of ' + _amt(row['floor']))
         if 'deadline' in inc:
-            parts.append('latest date ' + _fmt(_d(row['deadline'])))
-        lines.append('- ' + ', '.join(parts))
-    vars['debt_text'] = '\n'.join(lines) if lines else '- (no late product returned)'
+            parts.append('must be paid by ' + _fmt(_d(row['deadline'])))
+        lines.append('Your ' + row['label'] + ' ' + ' and '.join(parts) + '.')
+    vars['debt_text'] = ' '.join(lines) if lines else 'No late product was returned.'
     facts = ['Today is ' + _fmt(today) + '.']
     for row in table:
         facts.append(row['label'] + ': full past-due amount ' + _amt(row['past_due']) + ', minimum ' + _amt(row['floor']) + ', latest possible promise date ' + _fmt(_d(row['deadline'])) + '.')

@@ -257,6 +257,7 @@ class ProductLabel(Strict):
 
 class DebtStatement(Strict):
     intro_instruction: S
+    intro_sentence: S = Field(description="A ready-to-speak sentence in the first person that introduces the debt statement (who is calling and why), using the brief's own words; '' if the brief prescribes none.")
     product_labels: list[ProductLabel]
     include: L = Field(description="Account fields to state, e.g. past_due, days_late.")
     account_tool_after_identity: B

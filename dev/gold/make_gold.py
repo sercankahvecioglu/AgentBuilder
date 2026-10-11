@@ -179,6 +179,7 @@ A = {
     ],
     "debt_statement": {
         "intro_instruction": s("Say that you are calling from the collections team about a late payment.", "A-R17"),
+        "intro_sentence": s("I am calling from the collections team about a late payment.", "A-R17"),
         "product_labels": [
             {"product_type": "credit_card", "template": "credit card ending {card_last4}", "fact_ids": ["A-R17"]},
             {"product_type": "personal_loan", "template": "personal loan", "fact_ids": ["A-R17"]},
