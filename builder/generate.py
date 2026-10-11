@@ -118,6 +118,18 @@ def is_instruction(text: str) -> bool:
     return bool(IMPERATIVE.match(s)) and (" you " in f" {s.lower()} " or " that " in f" {s.lower()} " or s.lower().startswith(("say ", "tell ", "explain ", "mention ", "state ")))
 
 
+CONTINUE_TAIL = re.compile(r"[,;]?\s*(and|then)\s+(continue|carry on|proceed)( with the call| the call)?\s*[.!]?\s*$", re.I)
+
+
+def spoken_instruction(text: str) -> str:
+    """An intent's say_text without a trailing 'and continue' (the model echoed it word for word)."""
+    t = (text or "").strip()
+    t2 = CONTINUE_TAIL.sub("", t).strip()
+    if t2 and t2 != t and not t2.endswith((".", "!", "?")):
+        t2 += "."
+    return t2 or t
+
+
 def lang_name(x: str) -> str:
     x = (x or "").strip()
     return LANG_NAMES.get(x.lower(), x) if len(x) <= 3 else x
@@ -214,7 +226,7 @@ class Generator:
                 "too_much_offer_floor_once": bool(tv(s.amounts.too_much.offer_floor_once)), "too_much_say_rest_overdue": bool(tv(s.amounts.too_much.say_rest_overdue)),
                 "below_floor_offer_floor_once": bool(tv(s.amounts.below_floor.offer_floor_once)),
             },
-            "intents": [it.model_dump() for it in s.special_intents],
+            "intents": [dict(it.model_dump(), say_text=spoken_instruction(it.say_text)) for it in s.special_intents],
             "recording": {"max_attempts": int(tv(s.recording.max_attempts)), "failure_note_reason": tv(s.recording.failure_note_reason),
                           "failure_outcome": s.recording.failure_close.outcome, "failure_reason": s.recording.failure_close.reason, "failure_say": tv(s.recording.failure_say)},
             "closing": {
@@ -395,7 +407,7 @@ except Exception:
     def system_prompt(self) -> str:
         s = self.spec
         glob = [b.agent_instruction for b in s.behaviour_rules if b.stage == "global"]
-        cont = [f"If {it.trigger_description[0].lower() + it.trigger_description[1:]} {it.say_text}".replace("..", ".") for it in s.special_intents if it.continue_call and it.say_text]
+        cont = [f"If {(it.trigger_description[0].lower() + it.trigger_description[1:]).rstrip('. ')}: {spoken_instruction(it.say_text)}" for it in s.special_intents if it.continue_call and it.say_text]
         lines = [
             f"You are {tv(s.agent_self_description)}, on an outbound phone call. Speak {lang_name(tv(s.language))}.",
             "Keep every turn to one or two short sentences. Ask one question at a time. Be polite and plain.",
