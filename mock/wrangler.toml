@@ -1,3 +1,8 @@
 name = "freya-final-mock"
 main = "src/index.js"
 compatibility_date = "2026-09-01"
+
+# the earlier version kept state in a Durable Object; this one is stateless
+[[migrations]]
+tag = "v2"
+deleted_classes = ["Customer"]
