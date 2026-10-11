@@ -7,6 +7,11 @@ try:
     idx = _i(vars.get('cur_idx'))
     p = table[idx] if idx < len(table) else None
     nxt = 'readback'
+    frag = _s(vars.get('fragment')).lower() == 'yes'
+    vars['fragment'] = 'no'
+    if frag and rb != 'confirms' and _i(vars.get('rb_asks')) < 2:
+        # a cut-off answer to the read-back is not a change or a refusal: ask again for a clear answer
+        rb = 'none'
     if rb == 'confirms':
         nxt = 'promise_guard'
     elif rb == 'changes':

@@ -211,8 +211,16 @@ try:
 
     if p is not None and pay in ('yes_today', 'accepts_offer', 'proposes', 'too_much', 'vague'):
         p['none_count'] = 0
+    # a cut-off turn that carries a number or a day ("I can pay the full 45", "the 11th, sorry, I mean"): the value is
+    # probably incomplete, so ask once or twice to hear it whole instead of acting on it (never counts as an attempt)
+    cut_value = frag and (amt_said > 0 or kind in ('date', 'vague')) and pay in ('yes_today', 'accepts_offer', 'proposes', 'too_much', 'vague')
+    if p is not None and cut_value and _i(p.get('frag_count')) < 2:
+        p['frag_count'] = _i(p.get('frag_count')) + 1
+        pay = '__cut__'
     if p is None:
         nxt, hint = 'wrap_up', ''
+    elif pay == '__cut__':
+        hint = 'Sorry, I did not catch all of that. Could you say it again?'
     elif pay == 'start_product':
         nxt, hint = _start_product(p)
     elif pay == 'asks_question' or _intent(pay) is not None:

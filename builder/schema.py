@@ -194,7 +194,7 @@ class ThirdParty(Strict):
 
 class IdentityQuestion(Strict):
     api_field: str = Field(description="Value of the verify_identity `field` enum in the tool API.")
-    ask_text: str = Field(description="How to ask for it.")
+    ask_text: str = Field(description="The question itself, ready to speak in the first person (e.g. 'Could you please tell me your date of birth?'), using the documents' wording where they give it; never an instruction such as 'Ask for ...'.")
     answer_format: str = Field(description="Format sent to the tool, e.g. 'YYYY-MM-DD' or 'four digits'.")
     numeric_date_order: str = Field(description="For dates given only as numbers: 'day_month_year', 'month_day_year' or ''.")
     fact_ids: list[str]

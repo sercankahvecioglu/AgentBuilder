@@ -376,8 +376,10 @@ except Exception:
         ask_keys = [it.key for it in self.spec.special_intents if it.continue_call]
         asks = ev("asks", ask_keys + ["other_question", "none"],
                   "A question the customer asks the agent in the latest message in addition to anything about paying: " + self.intent_desc(ask_keys) + " other_question: any other question to the agent; none: no question.")
-        frag = ev("fragment", ["yes", "no"], "yes if the customer's latest message is cut off or unfinished (it stops mid-sentence or mid-word, or only starts a thought without reaching the point); no otherwise.")
-        return [pay, asks, frag] + self.date_parts("the payment") + [self.amount_part()] + self.scope_parts()
+        return [pay, asks, self.fragment_part()] + self.date_parts("the payment") + [self.amount_part()] + self.scope_parts()
+
+    def fragment_part(self) -> dict:
+        return ev("fragment", ["yes", "no"], "yes if the customer's latest message is cut off or unfinished (it stops mid-sentence or mid-word, ends with a dangling word such as 'the', 'I mean' or a comma, or only starts a thought without reaching the point); no otherwise.")
 
     def scope_parts(self) -> List[dict]:
         if not self.multi:
@@ -486,7 +488,16 @@ except Exception:
         id_rules = self.stage_rules("identity")
         for i, q in enumerate(idn.questions):
             nxt = f"identity_q{i + 1}" if i + 1 < len(idn.questions) else "load_account"
-            task = (f"Security question {i + 1} of {len(idn.questions)}. {q.ask_text} Ask one question at a time.\n{{{{id_hint}}}}\n"
+            # a ready-to-speak question is said as a fixed line on entry (no model call between the previous tool
+            # result and the next question: that model call was the slowest turn of every call); an instruction stays llm
+            q_speakable = bool(q.ask_text.strip()) and not is_instruction(q.ask_text) and "?" in q.ask_text
+            if q_speakable:
+                ask_rule = f"The question is exactly: \"{q.ask_text}\""
+                q_enter = {"type": "tts", "text": ("Thank you. " if i > 0 else "") + q.ask_text.strip()}
+            else:
+                ask_rule = q.ask_text
+                q_enter = {"type": "llm"}
+            task = (f"Security question {i + 1} of {len(idn.questions)}. {ask_rule} Ask one question at a time.\n{{{{id_hint}}}}\n"
                     f"When the customer answers, convert the answer to this format: {q.answer_format}" + (f" (a date given only as numbers is read as {q.numeric_date_order.replace('_', ', ')})" if q.numeric_date_order else "") +
                     f", then CALL {vq} with it. Do not state any account details. If asked why you need this, say the questions protect the account.\n"
                     "If the customer gives the answer in parts over several turns, combine the parts into one answer and call the tool as soon as the answer is complete; do not ask for parts you already have. "
@@ -504,7 +515,9 @@ except Exception:
             ex = [ev("id_reply", ["declines", "asks_purpose", "asks_why", "chatter"] + id_keys + ["none"],
                      "Based only on the customer's latest message: declines: they refuse to answer the security question; asks_purpose: they ask what the call or the account is about instead of answering; asks_why: they ask why the agent needs this answer or what it is for, without refusing; chatter: they talk about something else (their day, work, traffic, family) or the message is cut off, and give no answer at all; none: the message contains an answer to the security question (a date, digits, a code), even alongside a question or chatter; "
                      + self.intent_desc(id_keys) + " none: they answered the question, asked how to answer, or said something else.")]
-            n = conv_node(f"identity_q{i}", task, trans, extraction=ex, tools=[tool], max_turns=10, cap_target="id_cap")
+            # 20 turns: a customer whose turns arrive cut off needs several turns per answer before the wrong-answer limit is reached
+            n = conv_node(f"identity_q{i}", task, trans, extraction=ex, tools=[tool], max_turns=20, cap_target="id_cap",
+                          on_enter=q_enter, first_only=q_speakable)
             nodes[f"identity_q{i}"] = n
         # set id_node when entering each question: done through small code nodes is heavy; instead the router reads id_node set by id_router targets
         nodes["id_router"] = code_node("id_router", self.snippet("id_router"), "identity_q0",
@@ -562,7 +575,7 @@ except Exception:
         nodes["readback"] = conv_node("readback", rb_task, [always("readback_router")],
                                       on_enter=rb_tts, first_only=True,
                                       extraction=[ev("rb", rb_vals, "Based only on the customer's latest message: confirms: an explicit yes, correct, that's right or I confirm, and nothing else is changed; changes: they name another day or amount, or give a fragment of a date (set the other fields); refuses: they no longer want to promise; "
-                                                     + self.intent_desc(rb_keys) + " asks_question: a question; none: unclear.")] + self.date_parts("the payment") + [self.amount_part()] + self.scope_parts())
+                                                     + self.intent_desc(rb_keys) + " asks_question: a question; none: unclear."), self.fragment_part()] + self.date_parts("the payment") + [self.amount_part()] + self.scope_parts())
         nodes["readback_llm"] = conv_node("readback_llm", "{{rb_hint}}\nThen, in the same turn, read the promise back exactly like this and ask the question word for word: \"To confirm: {{readback_text}}. " + tv(conf.confirm_question) + "\"\nNo tool call is allowed in this step.",
                                           [always("readback_router")], extraction=nodes["readback"]["extraction_schema"])
         nodes["negotiation_router"]["transitions"].insert(0, eq("readback_llm", "nego_next", "readback_llm"))
