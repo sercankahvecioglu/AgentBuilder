@@ -110,6 +110,10 @@
    {
     "at": "2026-10-11 05:30 UTC",
     "change": "A `fragment` extraction flags cut-off turns; a non-answer (or a refusal in a cut-off turn) gets one clarification ('Sorry, I did not catch your answer. Does that work for you?') before it counts as a persuasion attempt; the third-party node re-asks up to twice when no day or time was given, without using the outside-window budget."
+   },
+   {
+    "at": "2026-10-11 05:45 UTC",
+    "change": "talkative rerun 8/10 after the fragment fix; the remaining cuts correlate with instant replies (fixed lines, fast model turns). time.sleep works in the sandbox (spike): routers now pause 3 s before the agent answers (`reply_delay_s`, skipped in local tests); identity chatter is routed through id_router (pause + listen + re-ask); turn caps with targets on every conversation node (identity 10 \u2192 close declined; negotiation 12 \u2192 product_done; goodbye 3 \u2192 close)."
    }
   ]
  },

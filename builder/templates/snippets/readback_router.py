@@ -1,6 +1,7 @@
 # readback_router: after the customer answers the read-back.
 try:
     rb = _s(vars.get('rb')).lower()
+    _pause()
     vars['rb'] = 'none'
     table = _load('products_json', [])
     idx = _i(vars.get('cur_idx'))

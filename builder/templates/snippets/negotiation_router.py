@@ -2,6 +2,7 @@
 # sets nego_next and nego_hint. Works per product (cur_idx) and across products (multi-product mode).
 try:
     NEG = CONST.get('negotiation') or dict()
+    _pause()
     AMT = CONST.get('amounts') or dict()
     MULTI = bool(CONST.get('multi'))
     today = _today()

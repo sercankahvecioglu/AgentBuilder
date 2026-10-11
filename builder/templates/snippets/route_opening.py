@@ -15,6 +15,7 @@ try:
         vars['today_iso'] = today.isoformat()
         vars['today_text'] = _fmt(today)
     who = _s(vars.get('who')).lower()
+    _pause()
     vars['who'] = 'none'
     asks = _i(vars.get('confirm_asks'), 1)
     mx = _i(CONST.get('max_confirm_asks'), 2)

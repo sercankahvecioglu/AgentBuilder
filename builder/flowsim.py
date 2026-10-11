@@ -99,6 +99,7 @@ class Sim:
         self.wf = wf
         self.bank = bank
         self.vars: Dict[str, Any] = dict(variables)
+        self.vars.setdefault("no_pause", "1")
         self.trace = trace
         self.log: List[str] = []
         self.counts: Dict[str, int] = {}

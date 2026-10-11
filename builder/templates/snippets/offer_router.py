@@ -1,6 +1,7 @@
 # offer_router: after the customer answers a one-time offer or check (ask_once_first intents).
 try:
     key = _s(vars.get('offer_key'))
+    _pause()
     it = _intent(key) or dict()
     reply = _s(vars.get('offer_reply')).lower()
     vars['offer_reply'] = 'none'

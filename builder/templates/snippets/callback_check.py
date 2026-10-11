@@ -2,6 +2,7 @@
 try:
     tp = CONST.get('third_party') or dict()
     today = _today()
+    _pause()
     intent = _s(vars.get('tp_intent')).lower()
     vars['tp_intent'] = 'none'
     nxt = 'third_party'

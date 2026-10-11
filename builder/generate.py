@@ -77,10 +77,12 @@ def end_node(name: str, fn: str) -> dict:
 
 
 def conv_node(name: str, task: str, transitions: List[dict], extraction: List[dict] = None, tools: List[dict] = None,
-              on_enter: dict = None, first_only: bool = False, max_turns: int = 40) -> dict:
+              on_enter: dict = None, first_only: bool = False, max_turns: int = 40, cap_target: str = "") -> dict:
     n = {"name": name, "node_type": "conversation", "task_message": task, "transitions": transitions,
          "extraction_schema": extraction or [], "tools": tools or [], "max_node_turns": max_turns,
          "on_enter": on_enter or {"type": "llm"}, "truncation_strategy": "keep_all"}
+    if cap_target:
+        n["max_turn_transition"] = cap_target
     if first_only:
         n["on_enter_first_entry_only"] = True
     return n
@@ -214,6 +216,7 @@ class Generator:
             },
             "date_over_deadline_use_product_deadline": bool(tv(s.multi_product.date_over_deadline_use_product_deadline_and_say_so)),
             "multi": self.multi,
+            "reply_delay_s": 3.0,
         }
 
     def _promise_outcome(self) -> str:
@@ -476,7 +479,8 @@ except Exception:
                     f"When the customer answers, convert the answer to this format: {q.answer_format}" + (f" (a date given only as numbers is read as {q.numeric_date_order.replace('_', ', ')})" if q.numeric_date_order else "") +
                     f", then CALL {vq} with it. Do not state any account details. If asked why you need this, say the questions protect the account.\n"
                     "If the customer gives the answer in parts over several turns, combine the parts into one answer and call the tool as soon as the answer is complete; do not ask for parts you already have. "
-                    "Only the tool decides whether an answer is right: never say an answer is wrong, never say the check has failed and never send the customer elsewhere unless what_to_do_next says so.\n"
+                    "Only the tool decides whether an answer is right: never say an answer is wrong, never say the check has failed, never say goodbye or end the conversation yourself, and never send the customer elsewhere unless what_to_do_next says so. "
+                    "If the customer talks about something else or their sentence seems cut off, say in a few words that you are listening and ask the question again. "
                     f"{id_rules}\nAfter the tool result, do exactly what its what_to_do_next says.")
             tool = api_tool(self.api, vq, {self.cid: "{{" + self.cid + "}}", field_name: q.api_field},
                             description=f"Check the customer's answer to security question {i + 1} ({q.api_field}). CALL it every time the customer gives an answer to this question, with the answer converted to: {q.answer_format}.",
@@ -484,20 +488,21 @@ except Exception:
             flag = f"vq{i}_status"
             id_keys = self.intent_values(before_identity=True)
             trans = [eq("id_locked", flag, "locked"), eq(nxt, flag, "verified"),
-                     anyof("id_router", "id_reply", ["declines", "asks_purpose", "asks_why"] + id_keys, "the customer did not answer the question")]
-            ex = [ev("id_reply", ["declines", "asks_purpose", "asks_why"] + id_keys + ["none"],
-                     "Based only on the customer's latest message: declines: they refuse to answer the security question; asks_purpose: they ask what the call or the account is about instead of answering; asks_why: they ask why the agent needs this answer or what it is for, without refusing; "
+                     anyof("id_router", "id_reply", ["declines", "asks_purpose", "asks_why", "chatter"] + id_keys, "the customer did not answer the question")]
+            ex = [ev("id_reply", ["declines", "asks_purpose", "asks_why", "chatter"] + id_keys + ["none"],
+                     "Based only on the customer's latest message: declines: they refuse to answer the security question; asks_purpose: they ask what the call or the account is about instead of answering; asks_why: they ask why the agent needs this answer or what it is for, without refusing; chatter: they talk about something else (their day, work, traffic, family) or the message is cut off, and give no answer at all; "
                      + self.intent_desc(id_keys) + " none: they answered the question, asked how to answer, or said something else.")]
-            n = conv_node(f"identity_q{i}", task, trans, extraction=ex, tools=[tool])
+            n = conv_node(f"identity_q{i}", task, trans, extraction=ex, tools=[tool], max_turns=10, cap_target="id_cap")
             nodes[f"identity_q{i}"] = n
         # set id_node when entering each question: done through small code nodes is heavy; instead the router reads id_node set by id_router targets
         nodes["id_router"] = code_node("id_router", self.snippet("id_router"), "identity_q0",
                                        [eq(f"identity_q{i}", "id_next", f"identity_q{i}") for i in range(len(idn.questions))]
                                        + [eq("wrap_up", "id_next", "wrap_up"), eq("offer", "id_next", "offer"), eq("resume_router", "id_next", "resume_router")])
         nodes["id_locked"] = code_node("id_locked", self.snippet("id_locked"), "wrap_up", [])
+        nodes["id_cap"] = code_node("id_cap", self.const_text + self.prelude + "\ntry:\n    idc = CONST.get('identity') or dict()\n    _set_close(idc.get('decline_outcome'), idc.get('decline_reason'), '', 'I could not complete the security check.')\nexcept Exception:\n    pass\n", "wrap_up", [])
         # keep id_node current: each identity node's entry is preceded by a tiny code node for i>0
         for i in range(1, len(idn.questions)):
-            nodes[f"identity_q{i}_enter"] = code_node(f"identity_q{i}_enter", self.const_text + self.prelude + f"\ntry:\n    vars['id_node'] = 'identity_q{i}'\n    vars['id_hint'] = ''\n    vars['id_reply'] = 'none'\nexcept Exception:\n    pass\n", f"identity_q{i}", [])
+            nodes[f"identity_q{i}_enter"] = code_node(f"identity_q{i}_enter", self.const_text + self.prelude + f"\ntry:\n    vars['id_node'] = 'identity_q{i}'\n    vars['id_hint'] = ''\n    vars['id_reply'] = 'none'\n    _pause()\nexcept Exception:\n    pass\n", f"identity_q{i}", [])
             # re-point transitions that go to identity_q{i} from the previous question to the enter node
             prev = nodes[f"identity_q{i - 1}"]
             for t in prev["transitions"]:
@@ -520,15 +525,15 @@ except Exception:
             debt_enter = {"type": "tts", "text": f"{intro} {{{{debt_text}}}} {tv(neg.first_question)}"}
         else:
             debt_enter = {"type": "llm"}
-        nodes["state_debt"] = conv_node("state_debt", debt_task, [always("negotiation_router")], extraction=self.pay_schema(), on_enter=debt_enter, first_only=True)
+        nodes["state_debt"] = conv_node("state_debt", debt_task, [always("negotiation_router")], extraction=self.pay_schema(), on_enter=debt_enter, first_only=True, max_turns=8, cap_target="product_done")
         nego_task = ("You are agreeing a payment promise for: {{cur_label}}.\n{{date_facts}}\n"
                      "Instruction for this turn: {{nego_hint}}\n"
                      "Say only what the instruction asks, in one or two sentences, then wait for the answer. Never ask how much the customer can pay; you propose every amount. "
                      f"Never offer {', '.join(tv(neg.forbidden_offers))}. Do not add offers, dates or amounts of your own: the instruction already applies the policy below.\n"
                      f"Background policy:\n{nego_rules}\nNo tool call is allowed in this step.")
         nodes["negotiate"] = conv_node("negotiate", "You have just made the proposal shown above. Wait for the customer's answer. No tool call is allowed in this step.",
-                                       [always("negotiation_router")], extraction=self.pay_schema(), on_enter={"type": "tts", "text": "{{nego_say}}"})
-        nodes["negotiate_llm"] = conv_node("negotiate_llm", nego_task, [always("negotiation_router")], extraction=self.pay_schema())
+                                       [always("negotiation_router")], extraction=self.pay_schema(), on_enter={"type": "tts", "text": "{{nego_say}}"}, max_turns=12, cap_target="product_done")
+        nodes["negotiate_llm"] = conv_node("negotiate_llm", nego_task, [always("negotiation_router")], extraction=self.pay_schema(), max_turns=12, cap_target="product_done")
         nodes["negotiation_router"] = code_node("negotiation_router", self.snippet("negotiation_router"), "negotiate_llm",
                                                 [eq("negotiate", "nego_next", "negotiate"), eq("readback", "nego_next", "readback"), eq("offer", "nego_next", "offer"), eq("wrap_up", "nego_next", "wrap_up"),
                                                  eq("resume_router", "nego_next", "resume_router"), eq("product_done", "nego_next", "product_done")])
@@ -631,6 +636,10 @@ except Exception:
             nodes["close_" + k] = api_node("close_" + k, api_tool(self.api, cc, baked, omit=omit, post=self.hook_post_status("close_status", [], "Closed.")), "end_" + k, [])
             nodes["end_" + k] = end_node("end_" + k, k)
 
+        for n, cap, target in (("offer", 6, "wrap_up"), ("readback", 8, "wrap_up"), ("readback_llm", 8, "wrap_up"), ("third_party", 8, "wrap_up"),
+                               ("goodbye", 3, "pre_close"), ("goodbye_tts", 3, "pre_close"), ("say_recorded", 3, "after_recorded"), ("opening", 6, "route_opening")):
+            nodes[n]["max_node_turns"] = cap
+            nodes[n]["max_turn_transition"] = target
         wf = {
             "initial_node": "opening",
             "system_prompt": self.system_prompt(),

@@ -193,6 +193,19 @@ def _resolve_date(today):
     return ('none', None)
 
 
+def _pause():
+    # a short pause before the agent answers: an instant reply cuts a customer who is still talking (ISS-010)
+    try:
+        if _s(vars.get('no_pause')):
+            return
+        import time
+        d = float(CONST.get('reply_delay_s') or 0)
+        if d > 0:
+            time.sleep(min(d, 6.0))
+    except Exception:
+        pass
+
+
 def _row_key(outcome, reason):
     return _s(outcome) + ('__' + _s(reason) if _s(reason) else '')
 

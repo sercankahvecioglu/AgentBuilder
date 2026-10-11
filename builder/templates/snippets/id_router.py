@@ -1,11 +1,14 @@
 # id_router: a non-answer reply in an identity question node (decline, purpose question, human, not talk).
 try:
     idc = CONST.get('identity') or dict()
+    _pause()
     reply = _s(vars.get('id_reply')).lower()
     vars['id_reply'] = 'none'
     cur = _s(vars.get('id_node')) or 'identity_q0'
     nxt = cur
-    if reply == 'asks_why':
+    if reply == 'chatter':
+        vars['id_hint'] = 'Say in a few words that you are listening, then ask the same question again.'
+    elif reply == 'asks_why':
         vars['id_hint'] = _s(idc.get('explain_once_text')) + ' Then ask the same question again.'
     elif reply in ('declines', 'asks_purpose'):
         if reply == 'asks_purpose' and not idc.get('purpose_question_counts', True):
