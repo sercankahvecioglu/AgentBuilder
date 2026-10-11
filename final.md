@@ -102,7 +102,7 @@ DONE 06:03 UTC: exit 0, 521 s, 2 model calls, verify 0 errors / 4 warnings, 651 
 3. If it crashes: fix generically (a parser or schema edge case), commit, rerun. Do not add mock values anywhere in `builder/`.
 
 ### Step 6: freeze preparation (by 14:30)
-DONE 06:30 UTC except the tag (set after the own-cases rerun) and item 7 (stop the watchdog before 15:00 if it is still running).
+DONE 06:32 UTC: own cases 6/6 on the final build (`results/own-a-2.log`), tag `pre-final` = commit 3c88f70 pushed, watchdog stopped, no simulation running. Nothing may change in `builder/` before Sunday 17:00 except a crash fix after a hidden build.
 1. `git status` clean except `out/`, `results/`, state files. `git log --all -- .env` empty. `grep -rn "fak_\|sk-ant-" submission/ builder/ dev/` empty.
 2. Isolation check: `grep -rn 'memory\.md\|DEV_PLAN\|DEV_GUIDE\|"dev/\|public-test-set\|briefs/' builder/*.py builder/templates/snippets/*.py` shows docstrings only, no file reads.
 3. `dev/audit_grep.py` clean. Local suites green. `python -m pytest dev/tests -q` green (Track B's tests).
@@ -135,6 +135,6 @@ DONE 06:30 UTC except the tag (set after the own-cases rerun) and item 7 (stop t
 - [x] A 10/10 and B 3/3 at reps 3 on the final build (`results/a-reps3-6.log`, `results/b-reps3-6.log`); asks_back, pieces, in_words 10/10; own cases rerun on the final build: `results/own-a-2.log`
 - [x] e2e-a (real extraction) 9/10 at reps 1 (the single miss was the judge's "recorded" check before the wording fix); A+B from brief files builds in 490 s with a complete trace, B 3/3
 - [x] raw-mock runbook dry run exits 0 (521 s) with a complete trace and mock-only wording
-- [x] audit clean; isolation clean; no secrets in tracked files or history; fresh venv builds; tag `pre-final` (after the own-cases rerun)
+- [x] audit clean; isolation clean; no secrets in tracked files or history; fresh venv builds; tag `pre-final` = 3c88f70 (own cases 6/6 on the final build)
 - [x] memory.md and whatisdone.md updated with the final numbers
 - [ ] Sunday runbook (step 7) with the user
