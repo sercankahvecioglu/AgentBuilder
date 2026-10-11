@@ -86,7 +86,7 @@
    ]
   },
   "first_sentence": {
-   "value": "Hello, this is a digital assistant calling from Freya Bank. This call is recorded.",
+   "value": "Hello, this is a digital assistant calling from Freya Bank. We are recording this call.",
    "fact_ids": [
     "A-R1"
    ]

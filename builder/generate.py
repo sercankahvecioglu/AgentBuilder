@@ -80,7 +80,7 @@ def conv_node(name: str, task: str, transitions: List[dict], extraction: List[di
               on_enter: dict = None, first_only: bool = False, max_turns: int = 40, cap_target: str = "") -> dict:
     n = {"name": name, "node_type": "conversation", "task_message": task, "transitions": transitions,
          "extraction_schema": extraction or [], "tools": tools or [], "max_node_turns": max_turns,
-         "on_enter": on_enter or {"type": "llm"}, "truncation_strategy": "keep_all"}
+         "on_enter": on_enter or {"type": "llm"}, "truncation_strategy": "keep_all", "disable_inactivity_monitor": True}
     if cap_target:
         n["max_turn_transition"] = cap_target
     if first_only:
@@ -216,7 +216,7 @@ class Generator:
             },
             "date_over_deadline_use_product_deadline": bool(tv(s.multi_product.date_over_deadline_use_product_deadline_and_say_so)),
             "multi": self.multi,
-            "reply_delay_s": 3.0,
+            "reply_delay_s": 0.0,
         }
 
     def _promise_outcome(self) -> str:
@@ -528,6 +528,7 @@ except Exception:
         nodes["state_debt"] = conv_node("state_debt", debt_task, [always("negotiation_router")], extraction=self.pay_schema(), on_enter=debt_enter, first_only=True, max_turns=8, cap_target="product_done")
         nego_task = ("You are agreeing a payment promise for: {{cur_label}}.\n{{date_facts}}\n"
                      "Instruction for this turn: {{nego_hint}}\n"
+                     "If the instruction above is empty, say that you did not catch the answer and ask the customer to say it again. Never say that anything is recorded, agreed or arranged.\n"
                      "Say only what the instruction asks, in one or two sentences, then wait for the answer. Never ask how much the customer can pay; you propose every amount. "
                      f"Never offer {', '.join(tv(neg.forbidden_offers))}. Do not add offers, dates or amounts of your own: the instruction already applies the policy below.\n"
                      f"Background policy:\n{nego_rules}\nNo tool call is allowed in this step.")

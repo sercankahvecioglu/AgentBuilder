@@ -29,9 +29,7 @@ try:
         amt_said = 0.0
     if amt_said > 0 and amt_said < 32 and _s(vars.get('d_ref')).lower() in ('day_of_month', 'weekday'):
         amt_said = 0.0
-    keep_parts = pay in ('yes_today', 'accepts_offer', 'proposes', 'too_much') and bool(table) and idx < len(table) and _i(table[idx].get('none_count')) > 0
-    if not keep_parts:
-        _reset_date_parts()
+    _reset_date_parts()
     nxt = 'negotiate'
     hint = ''
 
@@ -211,6 +209,8 @@ try:
         # next product begins at attempt 1 without asking about today again
         return _next_attempt(q, (lead + ' ' if lead else '') + 'Now the ' + _s(q.get('label')) + '.', False)
 
+    if p is not None and pay in ('yes_today', 'accepts_offer', 'proposes', 'too_much', 'vague'):
+        p['none_count'] = 0
     if p is None:
         nxt, hint = 'wrap_up', ''
     elif pay == 'start_product':
@@ -254,11 +254,6 @@ try:
             nxt = _apply_intent(pay, 'negotiate') or 'negotiate'
             if nxt == 'negotiate':
                 hint = _s(vars.get('last_say'))
-    elif pay in ('yes_today', 'accepts_offer', 'proposes', 'too_much') and p.get('none_count'):
-        p['none_count'] = 0
-        vars['nego_cmd'] = pay
-        vars['fragment'] = 'no'
-        nxt = 'negotiation_router'
     elif pay == 'yes_today':
         if MULTI and (scope == 'all' or (scope != 'current' and len(_open_idx()) > 1 and _i(vars.get('asked_all')) == 0)):
             res = _agree_all(today)

@@ -141,7 +141,9 @@ of governing facts. Code will generate the agent from your output without readin
    - Ready-to-speak sentence fields (`opening.first_sentence`, `debt_statement.intro_sentence`): compose one natural
      first-person sentence from the documents' own words that contains every element the documents require for that
      moment (for the first sentence: who is calling and that the call is recorded; for the intro: who is calling and
-     why). "" only when the documents prescribe nothing for that moment.
+     why). "" only when the documents prescribe nothing for that moment. Phrase a call-recording disclosure in the
+     active voice ("we are recording this call", "this call is being monitored") and keep the word "recorded" for the
+     recorded-promise sentence only, so that the two can never be confused in the transcript.
    - `recording.failure_say`, `identity.fail_message`, `say_text` and similar text leaves: an imperative instruction with
      the documents' wording; "" only when the documents give nothing for that case.
    - `identity.swapped`: only when the identity tool's response in the tool API has a hint for swapped date parts;

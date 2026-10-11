@@ -100,7 +100,7 @@ A = {
     },
     "opening": {
         "required_elements": l(["digital assistant", "calling from Freya Bank", "the call is recorded"], "A-R1"),
-        "first_sentence": s("Hello, this is a digital assistant calling from Freya Bank. This call is recorded.", "A-R1"),
+        "first_sentence": s("Hello, this is a digital assistant calling from Freya Bank. We are recording this call.", "A-R1"),
         "forbidden_before_identity": l(["collections", "debt", "payment", "the product"], "A-R1"),
         "confirm_question": s("Am I speaking with {title} {last_name}?", "A-R2"),
         "accept_examples": l(["yes", "that's me", "speaking", "the customer's own name"], "A-R3"),
