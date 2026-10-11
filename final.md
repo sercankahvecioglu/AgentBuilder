@@ -60,7 +60,8 @@ Always run from the repo root. Run `git status` before committing and never add 
 
 Work the steps in order. Each has a done-check. Record numbers in `memory.md` changelog and fixes in `dev/issues.json`.
 
-### Step 1: close the measurement that is in flight (was running at 05:45)
+### Step 1: close the measurement that is in flight
+DONE 06:13 UTC: brief-a v5 A 9/10 at reps 3 (only the 'recorded' judge trap); brief-ab v7 **B 3/3 at reps 3**; mock asks_back 10/10; talkative closed as a simulator artefact (ISS-010). The final build (brief-a v6, brief-ab v8) is on the real slots; its confirmation chain is running (results/a-reps3-6.log, a-asks_back-6, a-pieces-6, a-in_words-6, b-reps3-6). Original text of the step follows for reference.
 1. Read `results/a-reps3-5.log` (brief-a v5, A at reps 3), `results/b-reps3-3.log` (brief-ab v6, B at reps 3),
    `results/mock-talkative-1.log` and `results/mock-asks_back-1.log` (the "paused" build on slot `mock`).
 2. If a log never gets its `exit` line and the simulation shows `running` with all calls ended for over 20 min, the watchdog releases it; if the watchdog is not running, start it.
@@ -73,6 +74,7 @@ State at 05:55: brief-a v5 scored A 9/10 at reps 3 (only PUB-10, the judge's "re
 - Done-check: `.freya-agents.json` shows a new version for both slots and `git log` has the commit that produced it.
 
 ### Step 3: fix loop until the targets hold on the real slots
+State 06:15: read the *-6 logs first. Expected: A 9-10/10 (PUB-10 may still trip the judge's literal 'recorded' check even with the new wording; if it does, accept it as ISS-009), asks_back/pieces/in_words ≥ 9/10, B 3/3. Only a real regression (a case that passed at reps 3 before and now fails on a code path) justifies another round.
 Targets: A 10/10 at reps 3, B 3/3 at reps 3, own cases 6/6, pieces/in_words ≥ 9/10, asks_back ≥ 9/10, talkative ≥ 8/10.
 Loop (at most three rounds, stop at 11:00 UTC whatever the state):
 1. Run in one background chain: A reps 3, B reps 3, own cases, then the four styles at reps 1.

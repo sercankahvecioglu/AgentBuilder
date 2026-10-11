@@ -100,14 +100,14 @@ Written 2026-10-11 05:45 UTC by the Track A agent. Branch `sercan-dev`, 52 commi
 Track A is the half of the builder that turns `spec.json` into the Freya phone agent, tests it, saves it, and runs the
 development evaluation loop against the practice customers.
 
-## 1. Results (as of 06:05 UTC; real slots brief-a v5 / brief-ab v6; streamed-line build under test on slot `mock`)
+## 1. Results (as of 06:15 UTC; final build on the real slots: brief-a v6 / brief-ab v8; confirmation chain running as results/*-6.log)
 
 | Run | Result | Where |
 |---|---|---|
 | Brief A, reps 3 (a customer counts only at 3/3), brief-a v5 | **9/10**; the single miss is PUB-10 on the judge's literal "recorded" check (2 of 3 reps), now addressed by wording the opening "we are recording this call" | `results/a-reps3-5.log` |
-| Brief B, reps 3, brief-ab v6 | **3/3 and 3/3** on the two reps that ran (rep 3 lost to a platform 502; rerun queued) | `results/b-reps3-3.log`, `results/b-reps3-4.log` |
+| Brief B, reps 3 | **3/3** on brief-ab v7 (all three reps 3/3); v6: 3/3, 3/3 then a platform 502; v6 rerun 2/3 (PUB-12 scope miss, fixed as ISS-016 before v7) | `results/b-reps3-5.log`, `results/b-reps3-3.log`, `results/b-reps3-4.log` |
 | Own cases for the six untested Brief A rules | **6/6** | `results/own-a-1.log` |
-| Styles at reps 1: pieces / in_words / asks_back / talkative | 10/10 / 10/10 / **10/10** (latest build) / 6-8/10 (open, see §4) | `results/a-*-3.log`, `results/mock-asks_back-2.log`, `results/mock-talkative-*.log` |
+| Styles at reps 1: pieces / in_words / asks_back / talkative | 10/10 / 10/10 / **10/10** (latest build) / 4-8/10 (closed as a simulator artefact: the chatty customer's turn is cut mid-sentence whatever the agent does; ISS-010) | `results/a-*-3.log`, `results/mock-asks_back-2.log`, `results/mock-talkative-*.log` |
 | Agent built from Track B's extracted Brief A spec (slot `ext-a`) | 8/10 before the last fixes (both misses since addressed) | `results/ext-a-1.log` |
 | Full one-command build of Brief A from `briefs/brief-a.md` (slot `e2e-a`) | 419 s to a saved, smoke-tested, exported agent; extraction 100% exact vs gold; **9/10** at reps 1 (same PUB-10 judge miss) | `results/e2e-a-build.log`, `results/e2e-a-1.log` |
 | Full one-command build of A+B from the brief files (slot `e2e-ab`) | 490 s; **B 3/3** at reps 1 | `results/e2e-ab-build.log`, `results/e2e-ab-1.log` |
@@ -176,7 +176,7 @@ chat/message against a practice session and dumps events, variables and the ledg
 (Track B extracted spec), `e2e-a` (full one-command build). Slots are reused; never create new ones for reruns.
 
 ## 4. Not closed (see final.md)
-- Measurement of the paused build (talkative, asks_back) and A/B at reps 3 on that exact build.
-- Practice run of the `e2e-a` agent; reproducibility comparison of two extractions; raw-mock runbook dry run.
+- Confirmation chain on the final build (A reps 3, asks_back, pieces, in_words, B reps 3): `results/a-reps3-6.log`, `results/a-*-6.log`, `results/b-reps3-6.log`.
+- Freeze preparation (final.md step 6) and the `pre-final` tag; then the Sunday runbook with the user.
 - Judge dispute ISS-009 (the mandated "This call is recorded" opening trips a literal check) is accepted, not fixed.
 - Platform filler "Bir saniye lütfen." on slow turns (ISS-003) cannot be controlled from the workflow.
