@@ -131,7 +131,7 @@ DONE 06:32 UTC: own cases 6/6 on the final build (`results/own-a-2.log`), tag `p
 - A generated line reads like an instruction ("Say that you are..."): the spec field came back as an instruction; the generator falls back to a model-written line, but check Track B's 1b prompt wording for `first_sentence`, `intro_sentence`, `success_sentence`, `confirm_question`, `first_question`.
 - Static test failure on a hidden brief: read the message; a failing invariant means the spec has an unexpected value (for example a band gap) or the generator met a shape it has not seen. Fix generically; the build still saves an agent and exits 0.
 
-## 4. Definition of done (DEV_PLAN §6, updated) — state at 06:30 UTC
+## 4. Definition of done (DEV_PLAN §6, updated) — state at 14:40 UTC, FROZEN (builder identical to tag 3c88f70; the tag now also points at the final commit)
 - [x] A 10/10 and B 3/3 at reps 3 on the final build (`results/a-reps3-6.log`, `results/b-reps3-6.log`); asks_back, pieces, in_words 10/10; own cases rerun on the final build: `results/own-a-2.log`
 - [x] e2e-a (real extraction) 9/10 at reps 1 (the single miss was the judge's "recorded" check before the wording fix); A+B from brief files builds in 490 s with a complete trace, B 3/3
 - [x] raw-mock runbook dry run exits 0 (521 s) with a complete trace and mock-only wording

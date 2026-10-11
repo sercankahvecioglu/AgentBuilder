@@ -107,7 +107,7 @@ development evaluation loop against the practice customers.
 | Brief A, reps 3 (a customer counts only at 3/3) | **10/10** on the final build (v5 before the wording fix: 9/10, PUB-10 on the judge's literal "recorded" check) | `results/a-reps3-6.log`, `results/a-reps3-5.log` |
 | Brief B, reps 3 | **3/3** on the final build (and on v7); v6: 2/3 once (PUB-12 scope miss, fixed as ISS-016) | `results/b-reps3-6.log`, `results/b-reps3-5.log` |
 | Own cases for the six untested Brief A rules | **6/6** on the final build | `results/own-a-2.log` |
-| Styles at reps 1 on the final build: pieces / in_words / asks_back | **10/10 / 10/10 / 10/10**; talkative 4-8/10, closed as a simulator artefact (the chatty customer's turn is cut mid-sentence whatever the agent does; ISS-010) | `results/a-*-3.log`, `results/mock-asks_back-2.log`, `results/mock-talkative-*.log` |
+| Styles at reps 1 on the final build: pieces / in_words / asks_back / corrects | **10/10 / 10/10 / 10/10 / 10/10** (B: pieces 3/3); talkative 4-8/10, closed as a simulator artefact (the chatty customer's turn is cut mid-sentence whatever the agent does; ISS-010) | `results/a-*-3.log`, `results/mock-asks_back-2.log`, `results/mock-talkative-*.log` |
 | Agent built from Track B's extracted Brief A spec (slot `ext-a`) | 8/10 before the last fixes (both misses since addressed) | `results/ext-a-1.log` |
 | Full one-command build of Brief A from `briefs/brief-a.md` (slot `e2e-a`) | 419 s to a saved, smoke-tested, exported agent; extraction 100% exact vs gold; **9/10** at reps 1 (same PUB-10 judge miss) | `results/e2e-a-build.log`, `results/e2e-a-1.log` |
 | Full one-command build of A+B from the brief files (slot `e2e-ab`) | 490 s; **B 3/3** at reps 1 | `results/e2e-ab-build.log`, `results/e2e-ab-1.log` |

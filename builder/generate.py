@@ -596,12 +596,7 @@ except Exception:
         else:
             rec_enter = fixed_line(f"Thank you, your promise is recorded. {succ} Thank you for your time and goodbye.", force_tts=True)
             rec_task = "The promise was recorded and you have said goodbye. If the customer asks to change the recorded promise: " + tv(conf.change_after_record_text) + " Otherwise say goodbye again in a few words. No tool call is allowed."
-        # after the recorded line the customer may still ask for a transfer (a transfer after a recorded promise closes as transferred)
-        late_keys = [it.key for it in s.special_intents if it.action_kind == "transfer" or it.key in self.intents and self.intents[it.key].allowed_before_identity and it.action_kind == "transfer"]
-        late_keys = [it.key for it in s.special_intents if it.action_kind == "transfer"]
-        rec_ex = [ev("pay", late_keys + ["none"], "Based only on the customer's latest message after the promise was recorded: " + self.intent_desc(late_keys) + " none: anything else (thanks, goodbye, a question).")] if late_keys else []
-        rec_trans = ([anyof("negotiation_router", "pay", late_keys, "the customer asks for a transfer after the recorded promise")] if late_keys else []) + [always("after_recorded")]
-        nodes["say_recorded"] = conv_node("say_recorded", rec_task, rec_trans, extraction=rec_ex, on_enter=rec_enter, first_only=True)
+        nodes["say_recorded"] = conv_node("say_recorded", rec_task, [always("after_recorded")], on_enter=rec_enter, first_only=True)
         nodes["after_recorded"] = code_node("after_recorded", self.const_text + self.prelude + "\ntry:\n    vars['goodbye_done'] = 'yes'\nexcept Exception:\n    pass\n", "wrap_up", [])
 
         # 8 offers (ask_once_first intents)

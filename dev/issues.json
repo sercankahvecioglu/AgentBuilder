@@ -196,5 +196,17 @@
     "change": "applies_to definition: all only for one identical answer for every product; product_hint is one product, never a sentence. readback_router: on 'changes' every agreed product returns to open before re-routing, so the others are renegotiated or noted."
    }
   ]
+ },
+ {
+  "id": "ISS-017",
+  "title": "Experiment reverted: extracting transfer intents on the recorded line (rule 46 / B10 'transfer after a recorded promise') produced false transfers",
+  "status": "reverted",
+  "evidence": "brief-ab v9: B own case B9 closed transferred/restructuring instead of promise + dispute note; B reps 3 dropped to 1/3 (results/own-b-1.log, results/b-reps3-7.log). The customer's closing words after the recorded line were read as a plan request.",
+  "fix_history": [
+   {
+    "at": "2026-10-11 14:37 UTC",
+    "change": "Generator restored to the tagged build 3c88f70 (no extraction on the recorded line). A transfer request voiced after the recorded line stays unhandled, as in the measured build. Own B cases and flows kept for later work."
+   }
+  ]
  }
 ]
