@@ -32,6 +32,12 @@ try:
     _reset_date_parts()
     nxt = 'negotiate'
     hint = ''
+    if amt_said > 0 and table and idx < len(table) and abs(amt_said - round(amt_said)) < 0.005:
+        # a whole number said for an amount that has cents (the floor, the full amount, the proposal): the cents were dropped
+        for cand in (_f(table[idx].get('floor')), _f(table[idx].get('past_due')), _f(table[idx].get('prop_amount'))):
+            if cand > 0 and abs(cand - round(cand)) >= 0.005 and abs(cand - amt_said) < 1.0:
+                amt_said = cand
+                break
 
     def _open_idx():
         out = []
