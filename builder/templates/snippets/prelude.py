@@ -1,4 +1,4 @@
-# Shared helpers for every code node (runs in Freya's sandbox). `CONST` and `vars` exist before this text.
+# Shared helpers for every code node (runs in the platform's code sandbox). `CONST` and `vars` exist before this text.
 # Rules: only json/re/datetime; never raise; no double braces anywhere in this file.
 import json, re, datetime
 
