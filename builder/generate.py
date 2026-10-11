@@ -70,6 +70,17 @@ def api_node(name: str, tool: dict, default: str, transitions: List[dict]) -> di
     }
 
 
+FIXED_LINE_MODE = "llm"   # "tts" = instant fixed line; "llm" = the model repeats the fixed line word for word (streams like any reply)
+
+
+def fixed_line(text: str, force_tts: bool = False) -> dict:
+    """on_enter for a line built by code. In llm mode the model is told to say exactly this text and nothing else
+    (it streams, so a talking customer is not cut off); long lines and lines with a mandated sentence stay tts."""
+    if FIXED_LINE_MODE == "tts" or force_tts:
+        return {"type": "tts", "text": text}
+    return {"type": "llm", "prompt": "Your entire reply must be exactly this text, word for word, with nothing added before or after: " + text}
+
+
 def end_node(name: str, fn: str) -> dict:
     return {"name": name, "node_type": "end_call", "on_enter": {"type": "silent"}, "disable_inactivity_monitor": True, "transitions": [],
             "terminal": {"type": "function", "function": {"name": fn, "handler": "__function__:end_call",
@@ -523,7 +534,7 @@ except Exception:
                      "Do not ask how much the customer can pay. No tool call is allowed in this step.")
         intro = tv(getattr(s.debt_statement, "intro_sentence", "")) or ""
         if intro.strip() and not is_instruction(intro) and not is_instruction(tv(neg.first_question)):
-            debt_enter = {"type": "tts", "text": f"{intro} {{{{debt_text}}}} {tv(neg.first_question)}"}
+            debt_enter = fixed_line(f"{intro} {{{{debt_text}}}} {tv(neg.first_question)}", force_tts=True)
         else:
             debt_enter = {"type": "llm"}
         nodes["state_debt"] = conv_node("state_debt", debt_task, [always("negotiation_router")], extraction=self.pay_schema(), on_enter=debt_enter, first_only=True, max_turns=8, cap_target="product_done")
@@ -533,8 +544,8 @@ except Exception:
                      "Say only what the instruction asks, in one or two sentences, then wait for the answer. Never ask how much the customer can pay; you propose every amount. "
                      f"Never offer {', '.join(tv(neg.forbidden_offers))}. Do not add offers, dates or amounts of your own: the instruction already applies the policy below.\n"
                      f"Background policy:\n{nego_rules}\nNo tool call is allowed in this step.")
-        nodes["negotiate"] = conv_node("negotiate", "You have just made the proposal shown above. Wait for the customer's answer. No tool call is allowed in this step.",
-                                       [always("negotiation_router")], extraction=self.pay_schema(), on_enter={"type": "tts", "text": "{{nego_say}}"}, max_turns=12, cap_target="product_done")
+        nodes["negotiate"] = conv_node("negotiate", "Your line for this turn is exactly: {{nego_say}}\nSay it word for word and nothing else, then wait for the customer's answer. No tool call is allowed in this step.",
+                                       [always("negotiation_router")], extraction=self.pay_schema(), on_enter=fixed_line("{{nego_say}}"), max_turns=12, cap_target="product_done")
         nodes["negotiate_llm"] = conv_node("negotiate_llm", nego_task, [always("negotiation_router")], extraction=self.pay_schema(), max_turns=12, cap_target="product_done")
         nodes["negotiation_router"] = code_node("negotiation_router", self.snippet("negotiation_router"), "negotiate_llm",
                                                 [eq("negotiate", "nego_next", "negotiate"), eq("readback", "nego_next", "readback"), eq("offer", "nego_next", "offer"), eq("wrap_up", "nego_next", "wrap_up"),
@@ -545,7 +556,7 @@ except Exception:
         conf = s.confirmation
         rb_task = ("Read the agreed promise back exactly from this list, naming the product, the amount and the day: {{readback_text}}. "
                    f"Then ask exactly: \"{tv(conf.confirm_question)}\"\n{{{{rb_hint}}}}\n{self.stage_rules('confirmation')}\nNo tool call is allowed in this step.")
-        rb_tts = {"type": "llm"} if is_instruction(tv(conf.confirm_question)) else {"type": "tts", "text": "To confirm: {{readback_text}}. " + tv(conf.confirm_question)}
+        rb_tts = {"type": "llm"} if is_instruction(tv(conf.confirm_question)) else fixed_line("To confirm: {{readback_text}}. " + tv(conf.confirm_question))
         rb_keys = self.intent_values(before_identity=False)
         rb_vals = ["confirms", "changes", "refuses"] + rb_keys + ["asks_question", "none"]
         nodes["readback"] = conv_node("readback", rb_task, [always("readback_router")],
@@ -583,7 +594,7 @@ except Exception:
             rec_task = (f"The promise has just been recorded successfully (the tool returned ok). Say that it is recorded. {succ} Then thank the customer for their time and say goodbye in one short sentence. "
                         "If the customer later asks to change the recorded promise: " + tv(conf.change_after_record_text) + " No tool call is allowed.")
         else:
-            rec_enter = {"type": "tts", "text": f"Thank you, your promise is recorded. {succ} Thank you for your time and goodbye."}
+            rec_enter = fixed_line(f"Thank you, your promise is recorded. {succ} Thank you for your time and goodbye.", force_tts=True)
             rec_task = "The promise was recorded and you have said goodbye. If the customer asks to change the recorded promise: " + tv(conf.change_after_record_text) + " Otherwise say goodbye again in a few words. No tool call is allowed."
         nodes["say_recorded"] = conv_node("say_recorded", rec_task, [always("after_recorded")], on_enter=rec_enter, first_only=True)
         nodes["after_recorded"] = code_node("after_recorded", self.const_text + self.prelude + "\ntry:\n    vars['goodbye_done'] = 'yes'\nexcept Exception:\n    pass\n", "wrap_up", [])
@@ -618,7 +629,7 @@ except Exception:
                         "Ask no question of any kind, propose nothing, mention no amount, date or payment, and do not call any tool.")
         nodes["goodbye"] = conv_node("goodbye", goodbye_task, [always("pre_close")])
         nodes["goodbye_tts"] = conv_node("goodbye_tts", "You have said goodbye. If the customer says anything, say goodbye again in a few words. No tool call is allowed.",
-                                         [always("pre_close")], on_enter={"type": "tts", "text": "{{goodbye_say}} Thank you for your time and goodbye."}, first_only=True)
+                                         [always("pre_close")], on_enter=fixed_line("{{goodbye_say}} Thank you for your time and goodbye."), first_only=True)
         nodes["pre_close"] = code_node("pre_close", self.snippet("pre_close"), "close_router", [eq("do_transfer", "pc_next", "do_transfer")])
         tr = self._op_with_fields(["queue"]) or "transfer_to_agent"
         qf = next((f for f, sch in self.api.op(tr).fields.items() if sch.get("enum") and f != self.cid), "queue")
